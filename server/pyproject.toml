@@ -1,0 +1,20 @@
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = [
+    "B008",   # Do not perform function call `Depends` in argument defaults (FastAPI standard pattern)
+    "F821",   # Undefined name (SQLAlchemy string forward references)
+    "DTZ003", # utcnow used
+    "DTZ011", # `datetime.date.today()` used
+    "DTZ005", # `datetime.datetime.now()` without tz
+    "DTZ007", # `datetime.datetime.strptime()` without %z
+    "BLE001", # Do not catch blind exception
+    "S105",   # Possible hardcoded password (test/seed data)
+    "S106",   # Possible hardcoded password
+    "S107",   # Possible hardcoded password
+    "S110",   # try-except-pass
+    "S311",   # Standard pseudo-random number generator
+    "E501",   # Line too long
+]

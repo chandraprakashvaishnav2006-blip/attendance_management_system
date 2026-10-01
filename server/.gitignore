@@ -1,0 +1,25 @@
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing & Linting
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local databases & uploads (keep dir, ignore contents)
+*.db
+*.sqlite3
+uploads/*
+!uploads/.gitkeep
+
+# Local environment variables
+.env.local
