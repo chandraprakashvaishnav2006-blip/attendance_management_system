@@ -1,3 +1,31 @@
+[project]
+name = "server"
+version = "0.1.0"
+description = "FastAPI backend for Student Management System"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "sqlalchemy>=2.0.28",
+    "alembic>=1.13.1",
+    "pydantic>=2.6.4",
+    "pydantic-settings>=2.2.1",
+    "pyjwt>=2.8.0",
+    "bcrypt==4.0.1",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.9",
+    "slowapi>=0.1.9",
+    "pandas>=2.2.1",
+    "pytest>=8.1.1",
+    "httpx>=0.27.0",
+    "ruff>=0.3.3",
+    "python-dotenv>=1.0.1",
+    "email-validator>=2.1.0",
+]
+
+[tool.vercel]
+entrypoint = "app.main:app"
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"
@@ -18,5 +46,3 @@ ignore = [
     "S311",   # Standard pseudo-random number generator
     "E501",   # Line too long
 ]
-[tool.vercel]
-entrypoint = "app.main:app"
