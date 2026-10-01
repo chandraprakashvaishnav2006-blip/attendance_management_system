@@ -18,3 +18,5 @@ ignore = [
     "S311",   # Standard pseudo-random number generator
     "E501",   # Line too long
 ]
+[tool.vercel]
+entrypoint = "app.main:app"
