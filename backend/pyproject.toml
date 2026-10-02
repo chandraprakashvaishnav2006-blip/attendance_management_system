@@ -41,8 +41,11 @@ ignore = [
     "BLE001", # Do not catch blind exception
     "S105",   # Possible hardcoded password (test/seed data)
     "S106",   # Possible hardcoded password
-    "S107",   # Possible hardcoded password
     "S110",   # try-except-pass
     "S311",   # Standard pseudo-random number generator
     "E501",   # Line too long
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

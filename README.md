@@ -259,7 +259,7 @@ All accounts come pre-configured in the database seeder. You can click the **Dem
 Run the pytest suite to verify authentication, roll number login, rate limiting, and RBAC data boundary isolation:
 
 ```bash
-cd server
+cd backend
 .\venv\Scripts\python.exe -m pytest -v
 ```
 
@@ -280,7 +280,7 @@ tests/test_rbac.py::test_parent_cannot_access_unlinked_child PASSED      [100%]
 
 ### Running Linting
 ```bash
-cd server
+cd backend
 .\venv\Scripts\python.exe -m ruff check app tests
 ```
 
