@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { ROLES_CONFIG } from './authConfig';
 import { RoleSelector } from './RoleSelector';
-import { AuthMethodToggle } from './AuthMethodToggle';
 import { RoleBanner } from './RoleBanner';
 import { PasswordForm } from './PasswordForm';
-import { OtpForm } from './OtpForm';
 import { QuickFillBar } from './QuickFillBar';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
 import studentMascotImg from '../../assets/images/student_mascot_avatar_1790781142146.jpg';
@@ -12,21 +10,16 @@ import { Sparkles, Shield, GraduationCap, Users } from 'lucide-react';
 
 export const UnifiedLoginCard = ({
   onPasswordLogin,
-  onOtpLogin,
   isLoading = false,
 }) => {
   const [selectedRole, setSelectedRole] = useState('student');
-  const [authMethod, setAuthMethod] = useState('password');
 
   // Form states initialized with working demo credentials
   const [username, setUsername] = useState(ROLES_CONFIG.student.demoUsername);
   const [password, setPassword] = useState(ROLES_CONFIG.student.demoPassword);
-  const [phone, setPhone] = useState(ROLES_CONFIG.student.demoPhone);
   const [rememberMe, setRememberMe] = useState(true);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [loginAlert, setLoginAlert] = useState(null);
-
-  const activeConfig = ROLES_CONFIG[selectedRole];
 
   // Handle role switch
   const handleRoleChange = (newRole) => {
@@ -34,7 +27,6 @@ export const UnifiedLoginCard = ({
     const cfg = ROLES_CONFIG[newRole];
     setUsername(cfg.demoUsername);
     setPassword(cfg.demoPassword);
-    setPhone(cfg.demoPhone);
     setLoginAlert({
       type: 'info',
       message: `Switched to ${cfg.label} Portal. Demo credentials applied.`,
@@ -55,27 +47,6 @@ export const UnifiedLoginCard = ({
     }
   };
 
-  // Handle OTP submit
-  const handleOtpSubmit = (otpCode) => {
-    if (onOtpLogin) {
-      onOtpLogin(selectedRole, phone, otpCode);
-    }
-  };
-
-  // Choose accent color class for the OTP/Password toggle
-  const getAuthToggleColor = () => {
-    switch (selectedRole) {
-      case 'admin':
-        return 'bg-indigo-600';
-      case 'student':
-        return 'bg-sky-500';
-      case 'parent':
-        return 'bg-teal-600';
-      default:
-        return 'bg-sky-500';
-    }
-  };
-
   return (
     <div className="w-full max-w-[440px] mx-auto relative">
       {/* Forgot Password Modal */}
@@ -87,7 +58,7 @@ export const UnifiedLoginCard = ({
 
       {/* Main Container Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-slate-200/70 dark:shadow-slate-950/50 border border-slate-100 dark:border-slate-800 overflow-hidden relative transition-all">
-        {/* Top Hero Arch - Seamless blend of Sky Blue mascot hero & EduTrack Pro */}
+        {/* Top Hero Arch */}
         <div
           className={`relative pt-6 pb-4 px-6 text-center overflow-hidden transition-colors duration-500 ${
             selectedRole === 'admin'
@@ -131,7 +102,7 @@ export const UnifiedLoginCard = ({
 
             {/* Welcome Title */}
             <h1 className="text-white font-bold text-lg sm:text-xl tracking-tight mt-1 drop-shadow-xs">
-              {authMethod === 'password' ? 'Login with Password' : 'Login with One-Time OTP'}
+              Sign In to Your Account
             </h1>
             <p className="text-white/80 text-xs mt-0.5 max-w-xs mx-auto">
               {selectedRole === 'admin'
@@ -171,17 +142,8 @@ export const UnifiedLoginCard = ({
             </div>
           )}
 
-          {/* 3. Auth Method Toggle (PASSWORD vs OTP) */}
+          {/* 3. Password Login Form */}
           <div className="pt-1">
-            <AuthMethodToggle
-              authMethod={authMethod}
-              onSelectMethod={setAuthMethod}
-              accentColorClass={getAuthToggleColor()}
-            />
-          </div>
-
-          {/* 4. Dynamic Form: Password or OTP */}
-          {authMethod === 'password' ? (
             <PasswordForm
               role={selectedRole}
               username={username}
@@ -194,23 +156,15 @@ export const UnifiedLoginCard = ({
               onForgotPassword={() => setIsForgotModalOpen(true)}
               isLoading={isLoading}
             />
-          ) : (
-            <OtpForm
-              role={selectedRole}
-              phone={phone}
-              onChangePhone={setPhone}
-              onSubmit={handleOtpSubmit}
-              isLoading={isLoading}
-            />
-          )}
+          </div>
 
-          {/* 5. Quick Fill Demo Logins Bar */}
+          {/* 4. Quick Fill Demo Logins Bar */}
           <QuickFillBar
             onQuickFill={handleQuickFill}
             activeRole={selectedRole}
           />
 
-          {/* 6. Footer Version Stamp */}
+          {/* 5. Footer Version Stamp */}
           <div className="pt-2 text-center">
             <span className="text-[11px] font-mono font-medium text-slate-400 dark:text-slate-500 tracking-wider">
               v2.0.2 · EduTrack Enterprise Security

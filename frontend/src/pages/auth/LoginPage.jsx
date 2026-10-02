@@ -45,21 +45,7 @@ export const LoginPage = () => {
     }
   };
 
-  const handleOtpLogin = async (roleId, phone, otpCode) => {
-    setIsLoading(true);
-    const config = ROLES_CONFIG[roleId];
-    const roleKey = config ? config.roleKey : roleId.toUpperCase();
 
-    toast.success(`OTP verified (${otpCode}) for ${phone}`);
-    const result = await login(config.demoUsername, config.demoPassword, roleKey);
-    setIsLoading(false);
-
-    if (result.success) {
-      if (result.user.role === 'ADMIN') navigate('/admin/dashboard');
-      else if (result.user.role === 'STUDENT') navigate('/student/dashboard');
-      else if (result.user.role === 'PARENT') navigate('/parent/dashboard');
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#f0f4f9] dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white transition-colors duration-300">
@@ -116,7 +102,7 @@ export const LoginPage = () => {
             </h1>
 
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl mx-auto lg:mx-0">
-              Access real-time attendance, examination records, announcements, and academic resources anywhere. Select your role, sign in with your credentials or one-time SMS verification, and take control.
+              Access real-time attendance, examination records, announcements, and academic resources anywhere. Select your role, sign in with your credentials, and take control.
             </p>
 
             {/* Quick Feature Grid */}
@@ -146,7 +132,7 @@ export const LoginPage = () => {
             <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-3 text-xs text-slate-600 dark:text-slate-400">
               <div className="flex items-center gap-1.5 font-medium">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <span>Dual Auth (Password & OTP)</span>
+                <span>Encrypted Password Login</span>
               </div>
               <div className="flex items-center gap-1.5 font-medium">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -163,7 +149,6 @@ export const LoginPage = () => {
           <div className="lg:col-span-6 flex justify-center w-full order-1 lg:order-2">
             <UnifiedLoginCard
               onPasswordLogin={handlePasswordLogin}
-              onOtpLogin={handleOtpLogin}
               isLoading={isLoading}
             />
           </div>
