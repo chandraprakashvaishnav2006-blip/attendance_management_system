@@ -77,7 +77,7 @@ Designed with a sleek, role-tailored UI (Admin: Indigo, Student: Emerald, Parent
 
 ```
 student-management-system/
-├── client/                     # React 18 + Vite Frontend
+├── frontend/                   # React 18 + Vite Frontend
 │   ├── src/
 │   │   ├── api/                # Axios instance with auth interceptor
 │   │   ├── components/         # Reusable UI (Modals, Badges, Tables, Charts, Skeletons)
@@ -87,7 +87,7 @@ student-management-system/
 │   │   └── App.jsx             # Role-protected routes (ProtectedRoute)
 │   ├── tailwind.config.js      # Custom theme colors (Admin, Student, Parent)
 │   └── vite.config.js          # Proxy configuration to FastAPI backend
-└── server/                     # FastAPI Backend (Python 3.10+)
+└── backend/                    # FastAPI Backend (Python 3.10+)
     ├── alembic/                # Database migrations
     ├── app/
     │   ├── core/               # App config, JWT & Bcrypt security, FastAPI dependencies
@@ -114,9 +114,9 @@ student-management-system/
 
 ### Step 1: Backend Setup
 
-1. Open a terminal in the `server/` directory:
+1. Open a terminal in the `backend/` directory:
    ```bash
-   cd server
+   cd backend
    ```
 
 2. Create and activate a Python virtual environment:
@@ -163,9 +163,9 @@ student-management-system/
 
 ### Step 2: Frontend Setup
 
-1. Open a second terminal in the `client/` directory:
+1. Open a second terminal in the `frontend/` directory:
    ```bash
-   cd client
+   cd frontend
    ```
 
 2. Install npm dependencies:
