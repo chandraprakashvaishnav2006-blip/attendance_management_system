@@ -194,6 +194,7 @@ def upgrade() -> None:
     sa.Column('subject_id', sa.Integer(), nullable=False),
     sa.Column('date', sa.Date(), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('time_slot', sa.String(length=30), nullable=True),
     sa.Column('marked_by', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
