@@ -13,7 +13,6 @@ import { Sparkles, Shield, GraduationCap, Users } from 'lucide-react';
 export const UnifiedLoginCard = ({
   onPasswordLogin,
   onOtpLogin,
-  isMobileDeviceView = false,
   isLoading = false,
 }) => {
   const [selectedRole, setSelectedRole] = useState('student');
@@ -78,7 +77,7 @@ export const UnifiedLoginCard = ({
   };
 
   return (
-    <div className={`w-full ${isMobileDeviceView ? 'max-w-[390px]' : 'max-w-[440px]'} mx-auto relative`}>
+    <div className="w-full max-w-[440px] mx-auto relative">
       {/* Forgot Password Modal */}
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
