@@ -16,6 +16,10 @@ import { SkeletonLoader } from '../../components/common/SkeletonLoader';
 import { EmptyState } from '../../components/common/EmptyState';
 import toast from 'react-hot-toast';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const BACKEND_BASE = API_BASE.startsWith('http') ? API_BASE.replace(/\/api\/v1\/?$/, '') : '';
+const getFileUrl = (path) => (!path ? '#' : path.startsWith('http') ? path : `${BACKEND_BASE}${path}`);
+
 export const StudentDocuments = () => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,14 +59,15 @@ export const StudentDocuments = () => {
   const handleDownload = async (doc) => {
     try {
       await api.post(`/student/documents/${doc.id}/download-count`);
+      const fileUrl = getFileUrl(doc.file_path);
       const link = document.createElement('a');
-      link.href = doc.file_path;
+      link.href = fileUrl;
       link.download = doc.title;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch {
-      window.open(doc.file_path, '_blank');
+      window.open(getFileUrl(doc.file_path), '_blank');
     }
   };
 

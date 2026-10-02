@@ -26,6 +26,10 @@ import { SkeletonLoader } from '../../components/common/SkeletonLoader';
 import { EmptyState } from '../../components/common/EmptyState';
 import toast from 'react-hot-toast';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const BACKEND_BASE = API_BASE.startsWith('http') ? API_BASE.replace(/\/api\/v1\/?$/, '') : '';
+const getFileUrl = (path) => (!path ? '#' : path.startsWith('http') ? path : `${BACKEND_BASE}${path}`);
+
 export const PDFManagement = () => {
   const [documents, setDocuments] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -437,7 +441,7 @@ export const PDFManagement = () => {
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <a
-                            href={doc.file_path}
+                            href={getFileUrl(doc.file_path)}
                             target="_blank"
                             rel="noreferrer"
                             title="Preview / Open"
@@ -446,7 +450,7 @@ export const PDFManagement = () => {
                             <Eye className="w-4 h-4" />
                           </a>
                           <a
-                            href={doc.file_path}
+                            href={getFileUrl(doc.file_path)}
                             download
                             title="Download Document"
                             className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
