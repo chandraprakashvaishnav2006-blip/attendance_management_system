@@ -11,7 +11,7 @@ if sys.stdout.encoding != 'utf-8':
 
 from app.core.security import get_password_hash
 from app.db.session import SessionLocal
-from app.models.academic import ClassModel, Subject
+from app.models.academic import Branch, ClassModel, Section, Subject
 from app.models.attendance import Attendance
 from app.models.communication import Notice, Notification, PDFDocument, Warning
 from app.models.marks import Exam, Mark
@@ -147,6 +147,61 @@ def run_seed():
     # All created subjects list for reference
     created_subjects = list(all_seeded_subjects.values())
 
+    # 3b. Branches & Departments
+    branches_data = [
+        ("Computer Science & Engineering", "CSE", "Dr. Rajesh Sharma", "Focuses on algorithms, software architecture, AI and distributed systems.", 180),
+        ("Electronics & Communication", "ECE", "Dr. Sunita Verma", "Covers signal processing, embedded systems, VLSI and communications.", 120),
+        ("Mechanical Engineering", "ME", "Dr. Amit Patel", "Specializes in thermodynamics, robotics, mechanics and CAD/CAM.", 60),
+        ("Information Technology", "IT", "Dr. Rohit Khanna", "Focuses on cloud systems, web platforms, databases and cybersecurity.", 120),
+        ("Civil Engineering", "CIVIL", "Dr. Vandana Rao", "Covers structural design, transportation, surveying and environmental engineering.", 60),
+    ]
+    seeded_branches = {}
+    for b_name, b_code, b_hod, b_desc, b_cap in branches_data:
+        br = db.query(Branch).filter(Branch.code == b_code).first()
+        if not br:
+            br = Branch(
+                name=b_name,
+                code=b_code,
+                hod_name=b_hod,
+                description=b_desc,
+                intake_capacity=b_cap,
+                is_active=True
+            )
+            db.add(br)
+            db.flush()
+        else:
+            br.hod_name = b_hod
+            br.description = b_desc
+            br.intake_capacity = b_cap
+            db.flush()
+        seeded_branches[b_code] = br
+    print(f"[OK] Seeded {len(seeded_branches)} Branches")
+
+    # 3c. Sections for Classes
+    cse_branch = seeded_branches["CSE"]
+    sections_map = {}  # (class_id, sec_name) -> Section
+    for c in created_classes:
+        for sec_name, room, teacher in [("A", "Lecture Hall 101", "Dr. Rajesh Sharma"), ("B", "Lecture Hall 102", "Prof. Priya Nair")]:
+            sec = db.query(Section).filter(Section.class_id == c.id, Section.name == sec_name).first()
+            if not sec:
+                sec = Section(
+                    name=sec_name,
+                    class_id=c.id,
+                    branch_id=cse_branch.id,
+                    room_number=room,
+                    capacity=60,
+                    class_teacher=teacher,
+                    is_active=True
+                )
+                db.add(sec)
+                db.flush()
+            else:
+                if not sec.branch_id:
+                    sec.branch_id = cse_branch.id
+                db.flush()
+            sections_map[(c.id, sec_name)] = sec
+    print(f"[OK] Seeded Sections for {len(created_classes)} Classes")
+
     # 4. Students (20 students)
     student_names = [
         "Aarav Sharma", "Diya Patel", "Ethan Hunt", "Sophia Martinez",
@@ -181,14 +236,18 @@ def run_seed():
             user.lock_until = None
             db.flush()
 
+        section = "A" if idx <= 10 else "B"
+        target_sec = sections_map.get((primary_class.id, section))
+
         student = db.query(Student).filter(Student.roll_no == roll_no).first()
         if not student:
-            section = "A" if idx <= 10 else "B"
             student = Student(
                 user_id=user.id,
                 roll_no=roll_no,
                 name=name,
                 class_id=primary_class.id,
+                branch_id=cse_branch.id,
+                section_id=target_sec.id if target_sec else None,
                 section=section,
                 gender="Male" if idx % 2 != 0 else "Female",
                 phone=f"+1 555-01{idx:02d}",
@@ -197,7 +256,21 @@ def run_seed():
             )
             db.add(student)
             db.flush()
+        else:
+            student.branch_id = cse_branch.id
+            if target_sec:
+                student.section_id = target_sec.id
+                student.section = section
+            db.flush()
         created_students.append(student)
+
+    # Also link any remaining students in db to CSE and sections
+    for s in db.query(Student).all():
+        if not s.branch_id:
+            s.branch_id = cse_branch.id
+        if not s.section_id and s.class_id and (s.class_id, s.section) in sections_map:
+            s.section_id = sections_map[(s.class_id, s.section)].id
+    db.commit()
 
     # 5. Parents (15 parents linked to students)
     parent_names = [

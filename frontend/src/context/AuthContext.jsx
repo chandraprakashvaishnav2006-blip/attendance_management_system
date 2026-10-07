@@ -33,6 +33,9 @@ export const AuthProvider = ({ children }) => {
         try {
           const res = await api.get('/auth/me');
           if (res.success && res.data) {
+            if (res.data.students) {
+              res.data.students.sort((a, b) => a.name.localeCompare(b.name));
+            }
             setUser((prev) => ({ ...prev, ...res.data }));
             localStorage.setItem('user_data', JSON.stringify(res.data));
 
@@ -75,6 +78,9 @@ export const AuthProvider = ({ children }) => {
         try {
           const meRes = await api.get('/auth/me');
           if (meRes.success && meRes.data) {
+            if (meRes.data.students) {
+              meRes.data.students.sort((a, b) => a.name.localeCompare(b.name));
+            }
             const fullProfile = { ...userData, ...meRes.data };
             setUser(fullProfile);
             localStorage.setItem('user_data', JSON.stringify(fullProfile));

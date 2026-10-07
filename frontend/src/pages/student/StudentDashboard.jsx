@@ -9,7 +9,10 @@ import {
   BookOpen,
   LineChart,
   CheckCircle,
-  Clock
+  Clock,
+  Paperclip,
+  Download,
+  FolderArchive
 } from 'lucide-react';
 import api from '../../api/axios';
 import { Badge } from '../../components/common/Badge';
@@ -273,6 +276,27 @@ export const StudentDashboard = () => {
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                       {n.description}
                     </p>
+                    {n.attachment_path && (
+                      <div className="pt-1.5 flex items-center">
+                        <a
+                          href={n.attachment_path}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download
+                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 transition-colors"
+                        >
+                          {n.attachment_path.endsWith('.zip') ? (
+                            <FolderArchive className="w-3 h-3 text-indigo-500 shrink-0" />
+                          ) : (
+                            <Paperclip className="w-3 h-3 text-indigo-500 shrink-0" />
+                          )}
+                          <span className="truncate max-w-[160px]">
+                            {n.attachment_path.split('/').pop()}
+                          </span>
+                          <Download className="w-2.5 h-2.5 text-indigo-400 shrink-0" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 ))
               )}

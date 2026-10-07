@@ -25,4 +25,4 @@ class Parent(Base):
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="parent_profile")
-    students: Mapped[list["Student"]] = relationship("Student", secondary="parent_students", back_populates="parents")
+    students: Mapped[list["Student"]] = relationship("Student", secondary="parent_students", back_populates="parents", order_by="Student.name")

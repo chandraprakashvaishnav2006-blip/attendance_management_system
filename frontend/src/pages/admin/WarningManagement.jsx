@@ -36,17 +36,21 @@ export const WarningManagement = () => {
       const [warnRes, dashRes, studRes] = await Promise.all([
         api.get('/admin/warnings'),
         api.get('/admin/dashboard'),
-        api.get('/admin/students?page=1&page_size=100'),
+        api.get('/admin/students?page=1&page_size=100&sort_by=name&sort_order=asc'),
       ]);
 
       if (warnRes.success) setWarnings(warnRes.data);
       if (dashRes.success && dashRes.data) {
-        setLowAttendanceStudents(dashRes.data.low_attendance_students || []);
+        const sortedLow = [...(dashRes.data.low_attendance_students || [])].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+        setLowAttendanceStudents(sortedLow);
       }
       if (studRes.success && studRes.data) {
-        setStudents(studRes.data.items || []);
-        if (studRes.data.items?.length > 0) {
-          setForm((prev) => ({ ...prev, student_id: String(studRes.data.items[0].id) }));
+        const sortedStudents = (studRes.data.items || []).sort((a, b) => a.name.localeCompare(b.name));
+        setStudents(sortedStudents);
+        if (sortedStudents.length > 0) {
+          setForm((prev) => ({ ...prev, student_id: String(sortedStudents[0].id) }));
         }
       }
     } catch {

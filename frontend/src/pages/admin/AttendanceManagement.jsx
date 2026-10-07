@@ -165,9 +165,9 @@ export const AttendanceManagement = () => {
     if (!selectedClass || !selectedSubject) return;
     setLoading(true);
     try {
-      // 1. Fetch students for the class
-      const studRes = await api.get(`/admin/students?class_id=${selectedClass}&page=1&page_size=100`);
-      const fetchedStudents = studRes.data?.items || [];
+      // 1. Fetch students for the class (alphabetical order)
+      const studRes = await api.get(`/admin/students?class_id=${selectedClass}&page=1&page_size=100&sort_by=name&sort_order=asc`);
+      const fetchedStudents = (studRes.data?.items || []).sort((a, b) => a.name.localeCompare(b.name));
       setStudents(fetchedStudents);
 
       // 2. Fetch existing attendance for this class, subject, date
@@ -326,15 +326,16 @@ export const AttendanceManagement = () => {
 
       {/* Control Bar: Class, Subject, Date, Period Slot, Mark All */}
       <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+          {/* Class / Course */}
+          <div className="min-w-0">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 truncate">
               Class / Course
             </label>
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none truncate"
             >
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -344,22 +345,17 @@ export const AttendanceManagement = () => {
             </select>
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+          {/* Subject */}
+          <div className="min-w-0">
+            <div className="flex items-center justify-between gap-1 mb-1.5 min-w-0">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">
                 Subject
               </label>
-              <div className="flex items-center gap-1.5">
-                {selectedClassObj && (
-                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    {availableSubjects.length} subject{availableSubjects.length !== 1 ? 's' : ''}
-                  </span>
-                )}
-                <span className="text-slate-300 dark:text-slate-700">•</span>
+              <div className="flex items-center gap-1.5 text-[11px] shrink-0">
                 <button
                   type="button"
                   onClick={openAddSubjectModal}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-0.5 font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline cursor-pointer"
                   title="Add new subject to this semester"
                 >
                   <Plus className="w-3 h-3" />
@@ -371,7 +367,7 @@ export const AttendanceManagement = () => {
                     <button
                       type="button"
                       onClick={openEditSubjectModal}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:underline cursor-pointer"
+                      className="inline-flex items-center gap-0.5 font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:underline cursor-pointer"
                       title="Edit currently selected subject"
                     >
                       <Edit2 className="w-3 h-3" />
@@ -382,47 +378,27 @@ export const AttendanceManagement = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <select
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                disabled={availableSubjects.length === 0}
-                className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
-              >
-                {availableSubjects.length === 0 ? (
-                  <option value="">No subjects assigned to this semester</option>
-                ) : (
-                  availableSubjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.code})
-                    </option>
-                  ))
-                )}
-              </select>
-
-              <button
-                type="button"
-                onClick={openAddSubjectModal}
-                className="p-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer shrink-0"
-                title="Add new subject to this semester"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                disabled={!selectedSubject}
-                onClick={openEditSubjectModal}
-                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 transition-colors cursor-pointer shrink-0"
-                title="Edit currently selected subject"
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <select
+              value={selectedSubject}
+              onChange={(e) => setSelectedSubject(e.target.value)}
+              disabled={availableSubjects.length === 0}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60 truncate"
+            >
+              {availableSubjects.length === 0 ? (
+                <option value="">No subjects assigned to this semester</option>
+              ) : (
+                availableSubjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.code})
+                  </option>
+                ))
+              )}
+            </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+          {/* Date */}
+          <div className="min-w-0">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 truncate">
               Date
             </label>
             <input
@@ -433,13 +409,14 @@ export const AttendanceManagement = () => {
             />
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+          {/* Period / Time Slot */}
+          <div className="min-w-0">
+            <div className="flex items-center justify-between gap-1 mb-1.5 min-w-0">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 truncate">
                 Period / Time Slot
               </label>
               {recordedTimeSlot && (
-                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 shrink-0">
                   Recorded
                 </span>
               )}
@@ -449,7 +426,7 @@ export const AttendanceManagement = () => {
                 <select
                   value={selectedTimeSlot}
                   onChange={(e) => setSelectedTimeSlot(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none truncate"
                 >
                   {TIME_SLOT_OPTIONS.map((slot) => (
                     <option key={slot} value={slot}>

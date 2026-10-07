@@ -1,6 +1,8 @@
 import mimetypes
 import os
+import re
 import uuid
+import zipfile
 
 from fastapi import HTTPException, UploadFile, status
 
@@ -97,3 +99,72 @@ def validate_and_save_file(file: UploadFile, subfolder: str = "materials") -> tu
 def validate_and_save_pdf(file: UploadFile, subfolder: str = "materials") -> tuple[str, int]:
     rel_path, file_size, _, _ = validate_and_save_file(file, subfolder=subfolder)
     return rel_path, file_size
+
+
+def save_files_or_folder_as_bundle(
+    files: list[UploadFile],
+    folder_name: str | None = None,
+    subfolder: str = "announcements"
+) -> tuple[str, int, str, str]:
+    """
+    Handles single file upload or folder/multiple-file upload.
+    If multiple files or a folder name is supplied, packages them into a clean .zip archive.
+    If a single file without a folder name is supplied, saves as the original file.
+    Returns: (rel_path, file_size, mime_type, original_or_bundle_name)
+    """
+    if not files:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No files provided for upload.")
+
+    target_dir = os.path.join(settings.UPLOAD_DIR, subfolder)
+    os.makedirs(target_dir, exist_ok=True)
+    max_size_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+    # Single file case and not designated as a folder
+    if len(files) == 1 and not (folder_name and folder_name.strip()):
+        return validate_and_save_file(files[0], subfolder=subfolder)
+
+    # Folder or multiple files bundle -> zip archive
+    total_size = 0
+    file_contents = []
+
+    for file_obj in files:
+        original_name = file_obj.filename or "file"
+        _, ext = os.path.splitext(original_name)
+        ext_lower = ext.lower()
+
+        if ext_lower in DISALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Security alert: Executable file ({original_name}) is not allowed."
+            )
+
+        data = file_obj.file.read()
+        total_size += len(data)
+        if total_size > max_size_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Total upload size exceeds maximum allowed limit of {settings.MAX_UPLOAD_SIZE_MB}MB."
+            )
+        file_contents.append((original_name, data))
+        file_obj.file.seek(0)
+
+    # Sanitize bundle name
+    base_label = folder_name.strip() if folder_name and folder_name.strip() else "announcement_materials"
+    clean_label = re.sub(r'[^a-zA-Z0-9_\-]', '_', base_label).strip('_') or "bundle"
+    unique_suffix = uuid.uuid4().hex[:10]
+    zip_filename = f"{clean_label}_{unique_suffix}.zip"
+    zip_path = os.path.join(target_dir, zip_filename)
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for orig_path, data in file_contents:
+            clean_arcname = orig_path.replace("\\", "/").lstrip("/")
+            parts = [p for p in clean_arcname.split("/") if p and p != ".."]
+            arcname = "/".join(parts) if parts else os.path.basename(orig_path)
+            zf.writestr(arcname, data)
+
+    final_size = os.path.getsize(zip_path)
+    rel_path = f"/uploads/{subfolder}/{zip_filename}"
+    display_name = f"{clean_label}.zip"
+
+    return rel_path, final_size, "application/zip", display_name
+

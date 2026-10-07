@@ -8,12 +8,12 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://attendance-management-system-1-mhwi.onrender.com',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       },
       '/uploads': {
-        target: 'https://attendance-management-system-1-mhwi.onrender.com',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       }

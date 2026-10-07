@@ -42,7 +42,10 @@ export const ParentManagement = () => {
     setLoading(true);
     try {
       const res = await api.get(`/admin/parents${search ? `?search=${encodeURIComponent(search)}` : ''}`);
-      if (res.success) setParents(res.data);
+      if (res.success) {
+        const sortedParents = (res.data || []).sort((a, b) => a.name.localeCompare(b.name));
+        setParents(sortedParents);
+      }
     } catch {
       toast.error('Failed to load parents');
     } finally {
@@ -52,8 +55,11 @@ export const ParentManagement = () => {
 
   const fetchStudentsList = async () => {
     try {
-      const res = await api.get('/admin/students?page=1&page_size=100');
-      if (res.success && res.data) setStudents(res.data.items);
+      const res = await api.get('/admin/students?page=1&page_size=100&sort_by=name&sort_order=asc');
+      if (res.success && res.data) {
+        const sortedStudents = (res.data.items || []).sort((a, b) => a.name.localeCompare(b.name));
+        setStudents(sortedStudents);
+      }
     } catch {
       // Ignore
     }

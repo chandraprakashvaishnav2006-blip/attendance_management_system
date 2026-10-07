@@ -32,6 +32,9 @@ export const AdminDashboard = () => {
     try {
       const res = await api.get('/admin/dashboard');
       if (res.success) {
+        if (res.data?.low_attendance_students) {
+          res.data.low_attendance_students.sort((a, b) => a.name.localeCompare(b.name));
+        }
         setData(res.data);
       }
     } catch (err) {

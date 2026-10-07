@@ -20,8 +20,12 @@
   }
 
   html {
-    font-size: 16.5px;
-    zoom: 1.1; /* Scale up entire frontend for optimal legibility and comfortable vision */
+    font-size: 16px;
+    zoom: 1.25; /* Fixed 125% zoom on frontend */
+    touch-action: pan-x pan-y;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;

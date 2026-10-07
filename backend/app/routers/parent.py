@@ -37,6 +37,7 @@ def get_children(
     parent: Parent = Depends(get_current_parent),
     db: Session = Depends(get_db)
 ):
+    sorted_students = sorted(parent.students, key=lambda s: s.name.lower())
     results = [
         StudentSummary(
             id=s.id,
@@ -45,7 +46,7 @@ def get_children(
             class_id=s.class_id,
             class_name=s.class_group.name if s.class_group else None,
             section=s.section
-        ) for s in parent.students
+        ) for s in sorted_students
     ]
     return ApiResponse(success=True, data=results)
 
@@ -69,8 +70,9 @@ def get_parent_dashboard(
             }
         )
 
-    # Default to first child if not specified
-    target_id = student_id if student_id else parent.students[0].id
+    # Default to first child alphabetically if not specified
+    sorted_students = sorted(parent.students, key=lambda s: s.name.lower())
+    target_id = student_id if student_id else sorted_students[0].id
     child = verify_parent_child(parent, target_id)
 
     attendance_summary = get_student_attendance_summary(db, child.id)
@@ -107,7 +109,7 @@ def get_parent_dashboard(
                     "roll_no": s.roll_no,
                     "class_name": s.class_group.name if s.class_group else None,
                     "section": s.section
-                } for s in parent.students
+                } for s in sorted_students
             ],
             "active_child": {
                 "id": child.id,

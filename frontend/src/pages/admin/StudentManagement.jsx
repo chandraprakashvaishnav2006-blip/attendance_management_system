@@ -24,6 +24,8 @@ import toast from 'react-hot-toast';
 export const StudentManagement = () => {
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -33,6 +35,8 @@ export const StudentManagement = () => {
   // Filters
   const [search, setSearch] = useState('');
   const [classFilter, setClassFilter] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
+  const [sectionFilter, setSectionFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
   // Modals state
@@ -49,6 +53,8 @@ export const StudentManagement = () => {
     roll_no: '',
     email: '',
     class_id: '',
+    branch_id: '',
+    section_id: '',
     section: 'A',
     dob: '',
     gender: 'Male',
@@ -60,10 +66,16 @@ export const StudentManagement = () => {
   const [importFile, setImportFile] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchClasses = async () => {
+  const fetchAuxData = async () => {
     try {
-      const res = await api.get('/admin/classes');
-      if (res.success) setClasses(res.data);
+      const [classRes, brRes, secRes] = await Promise.all([
+        api.get('/admin/classes'),
+        api.get('/admin/branches'),
+        api.get('/admin/sections'),
+      ]);
+      if (classRes.success) setClasses(classRes.data || []);
+      if (brRes.success) setBranches(brRes.data || []);
+      if (secRes.success) setSections(secRes.data || []);
     } catch {
       // Ignore
     }
@@ -75,14 +87,21 @@ export const StudentManagement = () => {
       const params = new URLSearchParams({
         page: String(page),
         page_size: String(pageSize),
+        sort_by: 'name',
+        sort_order: 'asc',
       });
       if (search) params.append('search', search);
       if (classFilter) params.append('class_id', classFilter);
+      if (branchFilter) params.append('branch_id', branchFilter);
+      if (sectionFilter) params.append('section_id', sectionFilter);
       if (statusFilter) params.append('status_filter', statusFilter);
 
       const res = await api.get(`/admin/students?${params.toString()}`);
       if (res.success && res.data) {
-        setStudents(res.data.items);
+        const sortedList = (res.data.items || []).sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        );
+        setStudents(sortedList);
         setTotal(res.data.total);
         setTotalPages(res.data.total_pages);
       }
@@ -94,12 +113,12 @@ export const StudentManagement = () => {
   };
 
   useEffect(() => {
-    fetchClasses();
+    fetchAuxData();
   }, []);
 
   useEffect(() => {
     fetchStudents();
-  }, [page, search, classFilter, statusFilter]);
+  }, [page, search, classFilter, branchFilter, sectionFilter, statusFilter]);
 
   const handleOpenAdd = () => {
     setFormData({
@@ -107,6 +126,8 @@ export const StudentManagement = () => {
       roll_no: '',
       email: '',
       class_id: classes[0]?.id || '',
+      branch_id: branches[0]?.id || '',
+      section_id: '',
       section: 'A',
       dob: '',
       gender: 'Male',
@@ -124,7 +145,9 @@ export const StudentManagement = () => {
       roll_no: student.roll_no,
       email: student.email,
       class_id: student.class_id || '',
-      section: student.section,
+      branch_id: student.branch_id || '',
+      section_id: student.section_id || '',
+      section: student.section || 'A',
       dob: student.dob || '',
       gender: student.gender || 'Male',
       phone: student.phone || '',
@@ -141,6 +164,8 @@ export const StudentManagement = () => {
       const payload = {
         ...formData,
         class_id: formData.class_id ? Number(formData.class_id) : null,
+        branch_id: formData.branch_id ? Number(formData.branch_id) : null,
+        section_id: formData.section_id ? Number(formData.section_id) : null,
       };
       const res = await api.post('/admin/students', payload);
       if (res.success) {
@@ -164,6 +189,8 @@ export const StudentManagement = () => {
         name: formData.name,
         email: formData.email,
         class_id: formData.class_id ? Number(formData.class_id) : null,
+        branch_id: formData.branch_id ? Number(formData.branch_id) : null,
+        section_id: formData.section_id ? Number(formData.section_id) : null,
         section: formData.section,
         dob: formData.dob || null,
         gender: formData.gender,
@@ -323,6 +350,40 @@ export const StudentManagement = () => {
           </select>
 
           <select
+            value={branchFilter}
+            onChange={(e) => {
+              setBranchFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+          >
+            <option value="">All Branches</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.code} ({b.name})
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={sectionFilter}
+            onChange={(e) => {
+              setSectionFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+          >
+            <option value="">All Sections</option>
+            {sections
+              .filter((s) => !classFilter || String(s.class_id) === String(classFilter))
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  Section {s.name} ({s.branch_code || 'General'})
+                </option>
+              ))}
+          </select>
+
+          <select
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value);
@@ -356,7 +417,7 @@ export const StudentManagement = () => {
                 <tr>
                   <th className="py-3.5 px-4">Student</th>
                   <th className="py-3.5 px-4">Roll Number</th>
-                  <th className="py-3.5 px-4">Class & Section</th>
+                  <th className="py-3.5 px-4">Branch & Class</th>
                   <th className="py-3.5 px-4">Parents Linked</th>
                   <th className="py-3.5 px-4">Phone</th>
                   <th className="py-3.5 px-4">Status</th>
@@ -384,7 +445,20 @@ export const StudentManagement = () => {
                       {s.roll_no}
                     </td>
                     <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
-                      {s.class_name || 'Unassigned'} • Sec {s.section}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {s.branch_code && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                            {s.branch_code}
+                          </span>
+                        )}
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {s.class_name || 'Unassigned'}
+                        </span>
+                        <span className="text-slate-400">•</span>
+                        <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                          Sec {s.section_name || s.section}
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
@@ -515,7 +589,25 @@ export const StudentManagement = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Class / Course
+                Branch / Department
+              </label>
+              <select
+                value={formData.branch_id}
+                onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select Branch</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.code} - {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Class / Semester
               </label>
               <select
                 value={formData.class_id}
@@ -535,13 +627,28 @@ export const StudentManagement = () => {
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Section
               </label>
-              <input
-                type="text"
-                value={formData.section}
-                onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+              <select
+                value={formData.section_id}
+                onChange={(e) => {
+                  const secId = e.target.value;
+                  const secObj = sections.find((s) => String(s.id) === String(secId));
+                  setFormData({
+                    ...formData,
+                    section_id: secId,
+                    section: secObj ? secObj.name : 'A',
+                  });
+                }}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="A"
-              />
+              >
+                <option value="">Select Section</option>
+                {sections
+                  .filter((s) => !formData.class_id || String(s.class_id) === String(formData.class_id))
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      Section {s.name} ({s.branch_code || 'General'})
+                    </option>
+                  ))}
+              </select>
             </div>
 
             <div>
@@ -658,7 +765,25 @@ export const StudentManagement = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Class
+                Branch / Department
+              </label>
+              <select
+                value={formData.branch_id}
+                onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              >
+                <option value="">Select Branch</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.code} - {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Class / Semester
               </label>
               <select
                 value={formData.class_id}
@@ -678,12 +803,28 @@ export const StudentManagement = () => {
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Section
               </label>
-              <input
-                type="text"
-                value={formData.section}
-                onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+              <select
+                value={formData.section_id}
+                onChange={(e) => {
+                  const secId = e.target.value;
+                  const secObj = sections.find((s) => String(s.id) === String(secId));
+                  setFormData({
+                    ...formData,
+                    section_id: secId,
+                    section: secObj ? secObj.name : formData.section,
+                  });
+                }}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              />
+              >
+                <option value="">Select Section</option>
+                {sections
+                  .filter((s) => !formData.class_id || String(s.class_id) === String(formData.class_id))
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      Section {s.name} ({s.branch_code || 'General'})
+                    </option>
+                  ))}
+              </select>
             </div>
 
             <div>

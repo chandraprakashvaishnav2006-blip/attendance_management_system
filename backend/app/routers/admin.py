@@ -12,14 +12,14 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.deps import require_role
 from app.core.security import get_password_hash
 from app.db.session import get_db
-from app.models.academic import ClassModel, Subject
+from app.models.academic import Branch, ClassModel, Section, Subject
 from app.models.attendance import Attendance, AttendanceAudit
 from app.models.communication import Notice, PDFDocument, Warning
 from app.models.marks import Exam, Mark
@@ -27,10 +27,17 @@ from app.models.parent import Parent
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.academic import (
+    BranchCreate,
+    BranchOut,
+    BranchUpdate,
     ClassCreate,
     ClassOut,
     ClassSubjectsUpdate,
     ClassUpdate,
+    SectionAssignStudents,
+    SectionCreate,
+    SectionOut,
+    SectionUpdate,
     SubjectCreate,
     SubjectOut,
     SubjectUpdate,
@@ -65,7 +72,7 @@ from app.services.notification_service import (
     notify_warning_issued,
 )
 from app.utils.csv_helper import export_to_csv, parse_students_csv
-from app.utils.file_validator import validate_and_save_file, validate_and_save_pdf
+from app.utils.file_validator import save_files_or_folder_as_bundle, validate_and_save_file, validate_and_save_pdf
 
 router = APIRouter(prefix="/admin", tags=["Admin Module"], dependencies=[Depends(require_role("ADMIN"))])
 
@@ -101,6 +108,8 @@ def get_admin_dashboard(db: Session = Depends(get_db)):
                     "class_name": s.class_group.name if s.class_group else "-",
                     "percentage": pct,
                 })
+
+    low_attendance_students.sort(key=lambda s: s["name"].lower())
 
     recent_notices = db.query(Notice).order_by(Notice.created_at.desc()).limit(5).all()
     recent_warnings = db.query(Warning).order_by(Warning.created_at.desc()).limit(5).all()
@@ -278,6 +287,348 @@ def delete_subject(subject_id: int, db: Session = Depends(get_db)):
     db.commit()
     return ApiResponse(success=True, message=f"Subject '{s.name}' deleted successfully", data={"deleted_id": subject_id})
 
+
+# -------------------------------------------------------------
+# BRANCH MANAGEMENT
+# -------------------------------------------------------------
+@router.get("/branches", response_model=ApiResponse[list[BranchOut]])
+def list_branches(
+    search: str | None = None,
+    is_active: bool | None = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Branch)
+    if search:
+        term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Branch.name.ilike(term),
+                Branch.code.ilike(term),
+                Branch.hod_name.ilike(term)
+            )
+        )
+    if is_active is not None:
+        query = query.filter(Branch.is_active == is_active)
+
+    branches = query.order_by(func.lower(Branch.name).asc()).all()
+    results = []
+    for b in branches:
+        results.append(BranchOut(
+            id=b.id,
+            name=b.name,
+            code=b.code,
+            hod_name=b.hod_name,
+            description=b.description,
+            intake_capacity=b.intake_capacity,
+            is_active=b.is_active,
+            created_at=b.created_at,
+            sections_count=len(b.sections),
+            students_count=len(b.students)
+        ))
+    return ApiResponse(success=True, data=results)
+
+
+@router.post("/branches", response_model=ApiResponse[BranchOut])
+def create_branch(data: BranchCreate, db: Session = Depends(get_db)):
+    code_clean = data.code.strip().upper()
+    name_clean = data.name.strip()
+    if db.query(Branch).filter(Branch.code == code_clean).first():
+        raise HTTPException(status_code=400, detail=f"Branch code '{code_clean}' already exists")
+    if db.query(Branch).filter(Branch.name.ilike(name_clean)).first():
+        raise HTTPException(status_code=400, detail=f"Branch name '{name_clean}' already exists")
+
+    branch = Branch(
+        name=name_clean,
+        code=code_clean,
+        hod_name=data.hod_name.strip() if data.hod_name else None,
+        description=data.description.strip() if data.description else None,
+        intake_capacity=data.intake_capacity,
+        is_active=data.is_active
+    )
+    db.add(branch)
+    db.commit()
+    db.refresh(branch)
+    return ApiResponse(
+        success=True,
+        message=f"Branch '{branch.name}' created successfully",
+        data=BranchOut(
+            id=branch.id,
+            name=branch.name,
+            code=branch.code,
+            hod_name=branch.hod_name,
+            description=branch.description,
+            intake_capacity=branch.intake_capacity,
+            is_active=branch.is_active,
+            created_at=branch.created_at,
+            sections_count=0,
+            students_count=0
+        )
+    )
+
+
+@router.put("/branches/{branch_id}", response_model=ApiResponse[BranchOut])
+def update_branch(branch_id: int, data: BranchUpdate, db: Session = Depends(get_db)):
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+
+    if data.name is not None:
+        name_clean = data.name.strip()
+        existing = db.query(Branch).filter(Branch.name.ilike(name_clean)).first()
+        if existing and existing.id != branch_id:
+            raise HTTPException(status_code=400, detail=f"Branch name '{name_clean}' is already in use")
+        branch.name = name_clean
+
+    if data.code is not None:
+        code_clean = data.code.strip().upper()
+        existing = db.query(Branch).filter(Branch.code == code_clean).first()
+        if existing and existing.id != branch_id:
+            raise HTTPException(status_code=400, detail=f"Branch code '{code_clean}' is already in use")
+        branch.code = code_clean
+
+    if data.hod_name is not None:
+        branch.hod_name = data.hod_name.strip() if data.hod_name else None
+    if data.description is not None:
+        branch.description = data.description.strip() if data.description else None
+    if data.intake_capacity is not None:
+        branch.intake_capacity = data.intake_capacity
+    if data.is_active is not None:
+        branch.is_active = data.is_active
+
+    db.commit()
+    db.refresh(branch)
+    return ApiResponse(
+        success=True,
+        message=f"Branch '{branch.name}' updated successfully",
+        data=BranchOut(
+            id=branch.id,
+            name=branch.name,
+            code=branch.code,
+            hod_name=branch.hod_name,
+            description=branch.description,
+            intake_capacity=branch.intake_capacity,
+            is_active=branch.is_active,
+            created_at=branch.created_at,
+            sections_count=len(branch.sections),
+            students_count=len(branch.students)
+        )
+    )
+
+
+@router.delete("/branches/{branch_id}", response_model=ApiResponse[dict])
+def delete_branch(branch_id: int, db: Session = Depends(get_db)):
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+
+    student_count = db.query(Student).filter(Student.branch_id == branch_id).count()
+    if student_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete branch '{branch.name}' because {student_count} student(s) are assigned to it."
+        )
+
+    db.delete(branch)
+    db.commit()
+    return ApiResponse(success=True, message=f"Branch '{branch.name}' deleted successfully", data={"deleted_id": branch_id})
+
+
+# -------------------------------------------------------------
+# SECTION MANAGEMENT
+# -------------------------------------------------------------
+@router.get("/sections", response_model=ApiResponse[list[SectionOut]])
+def list_sections(
+    class_id: int | None = None,
+    branch_id: int | None = None,
+    is_active: bool | None = None,
+    search: str | None = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Section)
+    if class_id:
+        query = query.filter(Section.class_id == class_id)
+    if branch_id:
+        query = query.filter(Section.branch_id == branch_id)
+    if is_active is not None:
+        query = query.filter(Section.is_active == is_active)
+    if search:
+        term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Section.name.ilike(term),
+                Section.room_number.ilike(term),
+                Section.class_teacher.ilike(term)
+            )
+        )
+
+    sections = query.order_by(func.lower(Section.name).asc()).all()
+    results = []
+    for s in sections:
+        results.append(SectionOut(
+            id=s.id,
+            name=s.name,
+            class_id=s.class_id,
+            class_name=s.class_group.name if s.class_group else None,
+            branch_id=s.branch_id,
+            branch_name=s.branch.name if s.branch else None,
+            branch_code=s.branch.code if s.branch else None,
+            room_number=s.room_number,
+            capacity=s.capacity,
+            class_teacher=s.class_teacher,
+            is_active=s.is_active,
+            students_count=len(s.students),
+            created_at=s.created_at
+        ))
+    return ApiResponse(success=True, data=results)
+
+
+@router.post("/sections", response_model=ApiResponse[SectionOut])
+def create_section(data: SectionCreate, db: Session = Depends(get_db)):
+    cls = db.query(ClassModel).filter(ClassModel.id == data.class_id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    if data.branch_id:
+        br = db.query(Branch).filter(Branch.id == data.branch_id).first()
+        if not br:
+            raise HTTPException(status_code=404, detail="Branch not found")
+
+    sec_name = data.name.strip().upper()
+    existing = db.query(Section).filter(
+        Section.class_id == data.class_id,
+        Section.branch_id == data.branch_id,
+        Section.name == sec_name
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Section '{sec_name}' already exists for this class and branch")
+
+    section = Section(
+        name=sec_name,
+        class_id=data.class_id,
+        branch_id=data.branch_id,
+        room_number=data.room_number.strip() if data.room_number else None,
+        capacity=data.capacity,
+        class_teacher=data.class_teacher.strip() if data.class_teacher else None,
+        is_active=data.is_active
+    )
+    db.add(section)
+    db.commit()
+    db.refresh(section)
+    return ApiResponse(
+        success=True,
+        message=f"Section '{section.name}' created successfully",
+        data=SectionOut(
+            id=section.id,
+            name=section.name,
+            class_id=section.class_id,
+            class_name=section.class_group.name if section.class_group else None,
+            branch_id=section.branch_id,
+            branch_name=section.branch.name if section.branch else None,
+            branch_code=section.branch.code if section.branch else None,
+            room_number=section.room_number,
+            capacity=section.capacity,
+            class_teacher=section.class_teacher,
+            is_active=section.is_active,
+            students_count=0,
+            created_at=section.created_at
+        )
+    )
+
+
+@router.put("/sections/{section_id}", response_model=ApiResponse[SectionOut])
+def update_section(section_id: int, data: SectionUpdate, db: Session = Depends(get_db)):
+    section = db.query(Section).filter(Section.id == section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+
+    if data.name is not None:
+        section.name = data.name.strip().upper()
+    if data.class_id is not None:
+        cls = db.query(ClassModel).filter(ClassModel.id == data.class_id).first()
+        if not cls:
+            raise HTTPException(status_code=404, detail="Class not found")
+        section.class_id = data.class_id
+    if data.branch_id is not None:
+        if data.branch_id > 0:
+            br = db.query(Branch).filter(Branch.id == data.branch_id).first()
+            if not br:
+                raise HTTPException(status_code=404, detail="Branch not found")
+            section.branch_id = data.branch_id
+        else:
+            section.branch_id = None
+    if data.room_number is not None:
+        section.room_number = data.room_number.strip() if data.room_number else None
+    if data.capacity is not None:
+        section.capacity = data.capacity
+    if data.class_teacher is not None:
+        section.class_teacher = data.class_teacher.strip() if data.class_teacher else None
+    if data.is_active is not None:
+        section.is_active = data.is_active
+
+    db.commit()
+    db.refresh(section)
+    return ApiResponse(
+        success=True,
+        message=f"Section '{section.name}' updated successfully",
+        data=SectionOut(
+            id=section.id,
+            name=section.name,
+            class_id=section.class_id,
+            class_name=section.class_group.name if section.class_group else None,
+            branch_id=section.branch_id,
+            branch_name=section.branch.name if section.branch else None,
+            branch_code=section.branch.code if section.branch else None,
+            room_number=section.room_number,
+            capacity=section.capacity,
+            class_teacher=section.class_teacher,
+            is_active=section.is_active,
+            students_count=len(section.students),
+            created_at=section.created_at
+        )
+    )
+
+
+@router.delete("/sections/{section_id}", response_model=ApiResponse[dict])
+def delete_section(section_id: int, db: Session = Depends(get_db)):
+    section = db.query(Section).filter(Section.id == section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+
+    student_count = db.query(Student).filter(Student.section_id == section_id).count()
+    if student_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete section '{section.name}' because {student_count} student(s) are assigned to it."
+        )
+
+    db.delete(section)
+    db.commit()
+    return ApiResponse(success=True, message=f"Section '{section.name}' deleted successfully", data={"deleted_id": section_id})
+
+
+@router.post("/sections/assign-students", response_model=ApiResponse[dict])
+def assign_students_to_section(data: SectionAssignStudents, db: Session = Depends(get_db)):
+    section = db.query(Section).filter(Section.id == data.section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+
+    students = db.query(Student).filter(Student.id.in_(data.student_ids)).all()
+    for s in students:
+        s.section_id = section.id
+        s.section = section.name
+        if section.branch_id and not s.branch_id:
+            s.branch_id = section.branch_id
+        if section.class_id:
+            s.class_id = section.class_id
+
+    db.commit()
+    return ApiResponse(
+        success=True,
+        message=f"Successfully assigned {len(students)} student(s) to Section {section.name}",
+        data={"section_id": section.id, "assigned_count": len(students)}
+    )
+
+
 # -------------------------------------------------------------
 # STUDENT MANAGEMENT
 # -------------------------------------------------------------
@@ -285,6 +636,8 @@ def delete_subject(subject_id: int, db: Session = Depends(get_db)):
 def list_students(
     search: str | None = None,
     class_id: int | None = None,
+    branch_id: int | None = None,
+    section_id: int | None = None,
     section: str | None = None,
     status_filter: str | None = None,
     page: int = Query(1, ge=1),
@@ -306,6 +659,10 @@ def list_students(
         )
     if class_id:
         query = query.filter(Student.class_id == class_id)
+    if branch_id:
+        query = query.filter(Student.branch_id == branch_id)
+    if section_id:
+        query = query.filter(Student.section_id == section_id)
     if section:
         query = query.filter(Student.section.ilike(section))
     if status_filter:
@@ -313,12 +670,18 @@ def list_students(
 
     total = query.count()
 
-    # Sorting
-    sort_column = getattr(Student, sort_by, Student.name)
-    if sort_order.lower() == "desc":
-        query = query.order_by(desc(sort_column))
+    # Sorting - always alphabetical by default
+    if sort_by == "name":
+        if sort_order.lower() == "desc":
+            query = query.order_by(func.lower(Student.name).desc())
+        else:
+            query = query.order_by(func.lower(Student.name).asc())
     else:
-        query = query.order_by(sort_column)
+        sort_column = getattr(Student, sort_by, Student.name)
+        if sort_order.lower() == "desc":
+            query = query.order_by(desc(sort_column), func.lower(Student.name).asc())
+        else:
+            query = query.order_by(sort_column, func.lower(Student.name).asc())
 
     students = query.offset((page - 1) * page_size).limit(page_size).all()
     
@@ -332,6 +695,11 @@ def list_students(
             roll_no=s.roll_no,
             class_id=s.class_id,
             class_name=s.class_group.name if s.class_group else None,
+            branch_id=s.branch_id,
+            branch_name=s.branch.name if s.branch else None,
+            branch_code=s.branch.code if s.branch else None,
+            section_id=s.section_id,
+            section_name=s.section_model.name if s.section_model else s.section,
             section=s.section,
             dob=s.dob,
             gender=s.gender,
@@ -364,6 +732,17 @@ def add_student(data: StudentCreate, db: Session = Depends(get_db)):
     if db.query(Student).filter(Student.roll_no == data.roll_no).first():
         raise HTTPException(status_code=400, detail="A student with this roll number already exists")
 
+    # If section_id is provided, derive section name
+    section_val = data.section
+    if data.section_id:
+        sec_obj = db.query(Section).filter(Section.id == data.section_id).first()
+        if sec_obj:
+            section_val = sec_obj.name
+            if not data.class_id and sec_obj.class_id:
+                data.class_id = sec_obj.class_id
+            if not data.branch_id and sec_obj.branch_id:
+                data.branch_id = sec_obj.branch_id
+
     # Auto-generate credentials
     initial_pwd = data.password or f"{data.roll_no}@Pass123"
     new_user = User(
@@ -381,7 +760,9 @@ def add_student(data: StudentCreate, db: Session = Depends(get_db)):
         roll_no=data.roll_no,
         name=data.name,
         class_id=data.class_id,
-        section=data.section,
+        branch_id=data.branch_id,
+        section_id=data.section_id,
+        section=section_val,
         dob=data.dob,
         gender=data.gender,
         phone=data.phone,
@@ -404,6 +785,11 @@ def add_student(data: StudentCreate, db: Session = Depends(get_db)):
             roll_no=new_student.roll_no,
             class_id=new_student.class_id,
             class_name=new_student.class_group.name if new_student.class_group else None,
+            branch_id=new_student.branch_id,
+            branch_name=new_student.branch.name if new_student.branch else None,
+            branch_code=new_student.branch.code if new_student.branch else None,
+            section_id=new_student.section_id,
+            section_name=new_student.section_model.name if new_student.section_model else new_student.section,
             section=new_student.section,
             dob=new_student.dob,
             gender=new_student.gender,
@@ -442,6 +828,11 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
             roll_no=student.roll_no,
             class_id=student.class_id,
             class_name=student.class_group.name if student.class_group else None,
+            branch_id=student.branch_id,
+            branch_name=student.branch.name if student.branch else None,
+            branch_code=student.branch.code if student.branch else None,
+            section_id=student.section_id,
+            section_name=student.section_model.name if student.section_model else student.section,
             section=student.section,
             dob=student.dob,
             gender=student.gender,
@@ -469,6 +860,11 @@ def update_student(student_id: int, data: StudentUpdate, db: Session = Depends(g
             if existing:
                 raise HTTPException(status_code=400, detail="Email already taken")
             student.user.email = new_email
+
+    if "section_id" in update_dict and update_dict["section_id"]:
+        sec_obj = db.query(Section).filter(Section.id == update_dict["section_id"]).first()
+        if sec_obj:
+            update_dict["section"] = sec_obj.name
 
     for key, value in update_dict.items():
         setattr(student, key, value)
@@ -539,7 +935,7 @@ def export_students_csv(class_id: int | None = None, db: Session = Depends(get_d
     query = db.query(Student)
     if class_id:
         query = query.filter(Student.class_id == class_id)
-    students = query.all()
+    students = query.order_by(func.lower(Student.name).asc()).all()
 
     data = [
         {
@@ -570,7 +966,7 @@ def list_parents(search: str | None = None, db: Session = Depends(get_db)):
     if search:
         term = f"%{search}%"
         query = query.filter(or_(Parent.name.ilike(term), User.email.ilike(term), Parent.phone.ilike(term)))
-    parents = query.all()
+    parents = query.order_by(func.lower(Parent.name).asc()).all()
 
     result = []
     for p in parents:
@@ -582,7 +978,7 @@ def list_parents(search: str | None = None, db: Session = Depends(get_db)):
                 "class_id": s.class_id,
                 "class_name": s.class_group.name if s.class_group else None,
                 "section": s.section
-            } for s in p.students
+            } for s in sorted(p.students, key=lambda s: s.name.lower())
         ]
         result.append(ParentOut(
             id=p.id,
@@ -705,9 +1101,11 @@ def list_attendance(
     if time_slot:
         query = query.filter(Attendance.time_slot == time_slot)
     if class_id:
-        query = query.join(Student).filter(Student.class_id == class_id)
+        query = query.join(Student, Attendance.student_id == Student.id).filter(Student.class_id == class_id)
+    else:
+        query = query.join(Student, Attendance.student_id == Student.id)
 
-    attendances = query.order_by(Attendance.date.desc(), Attendance.id.desc()).all()
+    attendances = query.order_by(Attendance.date.desc(), func.lower(Student.name).asc()).all()
     results = []
     for a in attendances:
         results.append(AttendanceOut(
@@ -743,9 +1141,11 @@ def export_attendance_csv(
     if time_slot:
         query = query.filter(Attendance.time_slot == time_slot)
     if class_id:
-        query = query.join(Student).filter(Student.class_id == class_id)
+        query = query.join(Student, Attendance.student_id == Student.id).filter(Student.class_id == class_id)
+    else:
+        query = query.join(Student, Attendance.student_id == Student.id)
 
-    attendances = query.order_by(Attendance.date.desc(), Attendance.id.desc()).all()
+    attendances = query.order_by(Attendance.date.desc(), func.lower(Student.name).asc()).all()
 
     data = [
         {
@@ -1008,7 +1408,7 @@ def list_marks(
     if student_id:
         query = query.filter(Mark.student_id == student_id)
 
-    marks = query.all()
+    marks = query.join(Student, Mark.student_id == Student.id).order_by(func.lower(Student.name).asc()).all()
     results = []
     for m in marks:
         pct = round((m.marks_obtained / m.max_marks * 100), 1) if m.max_marks > 0 else 0.0
@@ -1084,6 +1484,7 @@ def create_admin_notice(
         priority=data.priority,
         target_audience=data.target_audience,
         class_id=data.class_id,
+        attachment_path=data.attachment_path,
         publish_date=data.publish_date,
         expiry_date=data.expiry_date,
         created_by=current_admin.id
@@ -1092,6 +1493,28 @@ def create_admin_notice(
     db.commit()
     db.refresh(notice)
     return ApiResponse(success=True, message="Notice published", data=NoticeOut.model_validate(notice))
+
+@router.post("/notices/upload-attachment", response_model=ApiResponse[dict])
+def upload_notice_attachment(
+    files: list[UploadFile] = File(...),
+    folder_name: str | None = Form(None),
+    current_admin: User = Depends(require_role("ADMIN")),
+):
+    rel_path, file_size, mime_type, orig_name = save_files_or_folder_as_bundle(
+        files=files,
+        folder_name=folder_name,
+        subfolder="announcements"
+    )
+    return ApiResponse(
+        success=True,
+        message="Attachment uploaded successfully",
+        data={
+            "file_url": rel_path,
+            "file_name": orig_name,
+            "file_size": file_size,
+            "mime_type": mime_type
+        }
+    )
 
 @router.put("/notices/{notice_id}", response_model=ApiResponse)
 def update_admin_notice(notice_id: int, data: NoticeUpdate, db: Session = Depends(get_db)):

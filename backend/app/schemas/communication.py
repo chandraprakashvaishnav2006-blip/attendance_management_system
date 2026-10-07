@@ -9,6 +9,7 @@ class NoticeBase(BaseModel):
     priority: str = "normal"  # normal, important, urgent
     target_audience: str = "all"  # all, students, parents, class
     class_id: int | None = None
+    attachment_path: str | None = None
     publish_date: dt.date = dt.date.today()
     expiry_date: dt.date | None = None
 
@@ -21,6 +22,7 @@ class NoticeUpdate(BaseModel):
     priority: str | None = None
     target_audience: str | None = None
     class_id: int | None = None
+    attachment_path: str | None = None
     publish_date: dt.date | None = None
     expiry_date: dt.date | None = None
 

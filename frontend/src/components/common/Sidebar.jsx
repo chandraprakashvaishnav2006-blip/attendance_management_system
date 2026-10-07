@@ -13,6 +13,8 @@ import {
   BookOpen,
   GraduationCap,
   ShieldAlert,
+  Activity,
+  Building2,
   X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -27,9 +29,11 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Attendance', path: '/admin/attendance', icon: CalendarCheck },
     { name: 'Marks & Exams', path: '/admin/marks', icon: Award },
     { name: 'Semesters & Subjects', path: '/admin/subjects', icon: BookOpen },
+    { name: 'Branches & Sections', path: '/admin/branches-sections', icon: Building2 },
     { name: 'Notices', path: '/admin/notices', icon: Bell },
     { name: 'PDF Materials', path: '/admin/documents', icon: FileText },
     { name: 'Warnings', path: '/admin/warnings', icon: AlertTriangle },
+    { name: 'System Functions', path: '/admin/functions', icon: Activity },
   ];
 
   const studentNav = [
