@@ -1,4 +1,6 @@
+import logging
 import os
+import time
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -9,12 +11,14 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-import time
+logger = logging.getLogger("uvicorn.error")
+
 
 from app.core.config import settings
 from app.core.rate_limiter import limiter
 from app.core.security import decode_token
-from app.db.session import SessionLocal
+from app.db.session import Base, SessionLocal, engine
+import app.models
 from app.routers import admin, auth, functions, parent, student
 from app.services.function_tracker import record_function_execution, seed_system_functions
 
@@ -73,14 +77,26 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    error_msg = f"Internal Server Error: {exc!s}" if settings.ENVIRONMENT.lower() == "development" else "An unexpected internal server error occurred."
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "success": False,
-            "message": f"Internal Server Error: {exc!s}",
+            "message": error_msg,
             "data": None
         }
     )
+
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 # Mount Uploads for direct PDF download and preview
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
@@ -159,12 +175,27 @@ app.include_router(functions.router, prefix=api_prefix)
 
 @app.on_event("startup")
 def startup_event():
-    # Seed system functions catalog on startup
+    # 1. Automatically create database tables if they do not exist
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        logger.error(f"[Startup] Could not create database tables: {e}")
+
+    # 2. Seed system functions catalog on startup
     db = SessionLocal()
     try:
         seed_system_functions(db)
+        # Check if database has any users; if completely empty, run seed
+        from app.models.user import User
+        if db.query(User).count() == 0:
+            logger.info("[Startup] Database is empty. Seeding initial records...")
+            try:
+                from app.seed import run_seed
+                run_seed()
+            except Exception as seed_err:
+                logger.error(f"[Startup] Could not run initial seed: {seed_err}")
     except Exception as e:
-        print(f"[Startup] Could not seed system functions: {e}")
+        logger.error(f"[Startup] Startup error: {e}")
     finally:
         db.close()
 

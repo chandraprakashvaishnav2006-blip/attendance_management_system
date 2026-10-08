@@ -23,7 +23,6 @@ import { PDFManagement } from './pages/admin/PDFManagement';
 import { WarningManagement } from './pages/admin/WarningManagement';
 import { SubjectManagement } from './pages/admin/SubjectManagement';
 import { BranchSectionManagement } from './pages/admin/BranchSectionManagement';
-import { FunctionTracker } from './pages/admin/FunctionTracker';
 
 // Student Pages
 import { StudentDashboard } from './pages/student/StudentDashboard';
@@ -98,7 +97,6 @@ function App() {
                 <Route path="/admin/notices" element={<NoticeManagement />} />
                 <Route path="/admin/documents" element={<PDFManagement />} />
                 <Route path="/admin/warnings" element={<WarningManagement />} />
-                <Route path="/admin/functions" element={<FunctionTracker />} />
               </Route>
 
               {/* Student Routes */}

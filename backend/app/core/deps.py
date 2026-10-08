@@ -42,10 +42,16 @@ def get_current_user(
         )
 
     user_id = payload.get("sub")
+    token_type = payload.get("type")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
+        )
+    if token_type and token_type != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type: access token required",
         )
 
     user = db.query(User).filter(User.id == int(user_id)).first()

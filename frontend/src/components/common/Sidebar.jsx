@@ -13,7 +13,6 @@ import {
   BookOpen,
   GraduationCap,
   ShieldAlert,
-  Activity,
   Building2,
   X
 } from 'lucide-react';
@@ -33,7 +32,6 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Notices', path: '/admin/notices', icon: Bell },
     { name: 'PDF Materials', path: '/admin/documents', icon: FileText },
     { name: 'Warnings', path: '/admin/warnings', icon: AlertTriangle },
-    { name: 'System Functions', path: '/admin/functions', icon: Activity },
   ];
 
   const studentNav = [
