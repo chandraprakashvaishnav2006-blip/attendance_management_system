@@ -95,6 +95,7 @@ export const StudentManagement = () => {
       if (branchFilter) params.append('branch_id', branchFilter);
       if (sectionFilter) params.append('section_id', sectionFilter);
       if (statusFilter) params.append('status_filter', statusFilter);
+      params.append('_t', String(Date.now()));
 
       const res = await api.get(`/admin/students?${params.toString()}`);
       if (res.success && res.data) {

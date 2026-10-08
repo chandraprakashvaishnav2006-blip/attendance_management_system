@@ -165,8 +165,8 @@ export const AttendanceManagement = () => {
     if (!selectedClass || !selectedSubject) return;
     setLoading(true);
     try {
-      // 1. Fetch students for the class (alphabetical order)
-      const studRes = await api.get(`/admin/students?class_id=${selectedClass}&page=1&page_size=100&sort_by=name&sort_order=asc`);
+      // 1. Fetch students for the class (alphabetical order) with cache buster
+      const studRes = await api.get(`/admin/students?class_id=${selectedClass}&page=1&page_size=100&sort_by=name&sort_order=asc&_t=${Date.now()}`);
       const fetchedStudents = (studRes.data?.items || []).sort((a, b) => a.name.localeCompare(b.name));
       setStudents(fetchedStudents);
 
