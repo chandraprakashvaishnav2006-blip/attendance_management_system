@@ -12,7 +12,7 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from sqlalchemy import desc, func, or_
+from sqlalchemy import case, desc, func, or_
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -684,9 +684,72 @@ def list_students(
             query = query.order_by(sort_column, func.lower(Student.name).asc())
 
     students = query.offset((page - 1) * page_size).limit(page_size).all()
-    
+
+    # Batch calculate attendance for all returned students
+    student_ids = [s.id for s in students]
+    att_stats: dict[int, dict] = {}
+    if student_ids:
+        records = (
+            db.query(
+                Attendance.student_id,
+                func.count(Attendance.id).label("total"),
+                func.sum(
+                    case(
+                        (func.lower(Attendance.status).in_(["present", "late"]), 1),
+                        else_=0,
+                    )
+                ).label("present"),
+                func.sum(
+                    case(
+                        (func.lower(Attendance.status) == "absent", 1),
+                        else_=0,
+                    )
+                ).label("absent"),
+                func.sum(
+                    case(
+                        (func.lower(Attendance.status) == "late", 1),
+                        else_=0,
+                    )
+                ).label("late"),
+                func.sum(
+                    case(
+                        (func.lower(Attendance.status) == "leave", 1),
+                        else_=0,
+                    )
+                ).label("leave"),
+            )
+            .filter(Attendance.student_id.in_(student_ids))
+            .group_by(Attendance.student_id)
+            .all()
+        )
+        for sid, tot, pres, ab, lt, lv in records:
+            tot = int(tot or 0)
+            pres = int(pres or 0)
+            ab = int(ab or 0)
+            lt = int(lt or 0)
+            lv = int(lv or 0)
+            pct = round((pres / tot * 100), 1) if tot > 0 else 100.0
+            att_stats[sid] = {
+                "total_classes": tot,
+                "present_count": pres,
+                "absent_count": ab,
+                "late_count": lt,
+                "leave_count": lv,
+                "attendance_percentage": pct,
+                "is_low_attendance": (pct < settings.MIN_ATTENDANCE_THRESHOLD and tot > 0),
+            }
+
     items = []
     for s in students:
+        s_att = att_stats.get(s.id, {
+            "total_classes": 0,
+            "present_count": 0,
+            "absent_count": 0,
+            "late_count": 0,
+            "leave_count": 0,
+            "attendance_percentage": 100.0,
+            "is_low_attendance": False,
+        })
         items.append(StudentOut(
             id=s.id,
             user_id=s.user_id,
@@ -708,7 +771,14 @@ def list_students(
             photo_path=s.photo_path,
             status=s.status,
             parent_count=len(s.parents),
-            created_at=s.created_at
+            created_at=s.created_at,
+            total_classes=s_att["total_classes"],
+            present_count=s_att["present_count"],
+            absent_count=s_att["absent_count"],
+            late_count=s_att["late_count"],
+            leave_count=s_att["leave_count"],
+            attendance_percentage=s_att["attendance_percentage"],
+            is_low_attendance=s_att["is_low_attendance"]
         ))
 
     total_pages = math.ceil(total / page_size) if total > 0 else 1
@@ -818,6 +888,16 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
             "relation": p.relation
         })
 
+    # Calculate student's overall attendance stats
+    s_records = db.query(Attendance).filter(Attendance.student_id == student_id).all()
+    tot = len(s_records)
+    pres = sum(1 for a in s_records if a.status.lower() in ("present", "late"))
+    ab = sum(1 for a in s_records if a.status.lower() == "absent")
+    lt = sum(1 for a in s_records if a.status.lower() == "late")
+    lv = sum(1 for a in s_records if a.status.lower() == "leave")
+    pct = round((pres / tot * 100), 1) if tot > 0 else 100.0
+    is_low = (pct < settings.MIN_ATTENDANCE_THRESHOLD and tot > 0)
+
     return ApiResponse(
         success=True,
         data=StudentDetailOut(
@@ -842,6 +922,13 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
             status=student.status,
             parent_count=len(parents_summary),
             created_at=student.created_at,
+            total_classes=tot,
+            present_count=pres,
+            absent_count=ab,
+            late_count=lt,
+            leave_count=lv,
+            attendance_percentage=pct,
+            is_low_attendance=is_low,
             parents=parents_summary
         )
     )
@@ -937,6 +1024,25 @@ def export_students_csv(class_id: int | None = None, db: Session = Depends(get_d
         query = query.filter(Student.class_id == class_id)
     students = query.order_by(func.lower(Student.name).asc()).all()
 
+    student_ids = [s.id for s in students]
+    att_stats = {}
+    if student_ids:
+        records = (
+            db.query(
+                Attendance.student_id,
+                func.count(Attendance.id).label("total"),
+                func.sum(case((func.lower(Attendance.status).in_(["present", "late"]), 1), else_=0)).label("present")
+            )
+            .filter(Attendance.student_id.in_(student_ids))
+            .group_by(Attendance.student_id)
+            .all()
+        )
+        for sid, tot, pres in records:
+            tot = int(tot or 0)
+            pres = int(pres or 0)
+            pct = round((pres / tot * 100), 1) if tot > 0 else 100.0
+            att_stats[sid] = f"{pct}% ({pres}/{tot})"
+
     data = [
         {
             "roll_no": s.roll_no,
@@ -944,6 +1050,7 @@ def export_students_csv(class_id: int | None = None, db: Session = Depends(get_d
             "email": s.user.email,
             "class": s.class_group.name if s.class_group else "",
             "section": s.section,
+            "attendance": att_stats.get(s.id, "100.0% (0/0)"),
             "phone": s.phone or "",
             "gender": s.gender or "",
             "status": s.status,

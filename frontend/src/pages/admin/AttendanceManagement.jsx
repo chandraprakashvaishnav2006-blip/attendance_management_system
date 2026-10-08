@@ -501,6 +501,7 @@ export const AttendanceManagement = () => {
                   <th className="py-3.5 px-4">Roll No</th>
                   <th className="py-3.5 px-4">Student Name</th>
                   <th className="py-3.5 px-4">Section</th>
+                  <th className="py-3.5 px-4">Overall Attendance</th>
                   <th className="py-3.5 px-4">Period / Slot</th>
                   <th className="py-3.5 px-4 text-center">Status Selection</th>
                   <th className="py-3.5 px-4 text-right">Audit Trail</th>
@@ -521,6 +522,26 @@ export const AttendanceManagement = () => {
                         {student.name}
                       </td>
                       <td className="py-3.5 px-4 text-slate-500">Sec {student.section}</td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                              student.total_classes === 0
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                : student.attendance_percentage >= 75
+                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                            }`}
+                          >
+                            {student.total_classes === 0 ? 'No records' : `${student.attendance_percentage}%`}
+                          </span>
+                          {student.total_classes > 0 && student.is_low_attendance && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                              Low
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3.5 px-4">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           <Clock className="w-3 h-3 text-indigo-500" />

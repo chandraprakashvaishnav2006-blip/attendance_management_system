@@ -45,6 +45,13 @@ class StudentOut(StudentBase):
     section_name: str | None = None
     parent_count: int = 0
     created_at: dt.datetime
+    total_classes: int = 0
+    present_count: int = 0
+    absent_count: int = 0
+    late_count: int = 0
+    leave_count: int = 0
+    attendance_percentage: float = 100.0
+    is_low_attendance: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
