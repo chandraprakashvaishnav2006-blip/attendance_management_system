@@ -22,4 +22,5 @@ uploads/*
 !uploads/.gitkeep
 
 # Local environment variables
+.env
 .env.local
