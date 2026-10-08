@@ -463,37 +463,43 @@ export const StudentManagement = () => {
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex flex-col gap-1 min-w-[110px]">
-                        <div className="flex items-center justify-between">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                              s.total_classes === 0
-                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                                : s.attendance_percentage >= 75
-                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                                : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
-                            }`}
-                          >
-                            {s.total_classes === 0 ? 'No records' : `${s.attendance_percentage}%`}
-                          </span>
-                          {s.total_classes > 0 && (
-                            <span className="text-[10px] text-slate-400 font-medium">
-                              {s.present_count}/{s.total_classes}
-                            </span>
-                          )}
-                        </div>
-                        {s.total_classes > 0 && (
-                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                s.attendance_percentage >= 85
-                                  ? 'bg-emerald-500'
-                                  : s.attendance_percentage >= 75
-                                  ? 'bg-amber-500'
-                                  : 'bg-rose-500'
-                              }`}
-                              style={{ width: `${Math.min(100, Math.max(0, s.attendance_percentage))}%` }}
-                            />
-                          </div>
+                        {s.attendance_percentage !== undefined && s.attendance_percentage !== null ? (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                  s.total_classes === 0
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                    : s.attendance_percentage >= 75
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                                }`}
+                              >
+                                {s.total_classes === 0 ? 'No records' : `${s.attendance_percentage}%`}
+                              </span>
+                              {s.total_classes > 0 && (
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                  {s.present_count}/{s.total_classes}
+                                </span>
+                              )}
+                            </div>
+                            {s.total_classes > 0 && (
+                              <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 ${
+                                    s.attendance_percentage >= 85
+                                      ? 'bg-emerald-500'
+                                      : s.attendance_percentage >= 75
+                                      ? 'bg-amber-500'
+                                      : 'bg-rose-500'
+                                  }`}
+                                  style={{ width: `${Math.min(100, Math.max(0, s.attendance_percentage))}%` }}
+                                />
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">--</span>
                         )}
                       </div>
                     </td>

@@ -524,20 +524,28 @@ export const AttendanceManagement = () => {
                       <td className="py-3.5 px-4 text-slate-500">Sec {student.section}</td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1.5">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                              student.total_classes === 0
-                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                                : student.attendance_percentage >= 75
-                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                                : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
-                            }`}
-                          >
-                            {student.total_classes === 0 ? 'No records' : `${student.attendance_percentage}%`}
-                          </span>
-                          {student.total_classes > 0 && student.is_low_attendance && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
-                              Low
+                          {student.attendance_percentage !== undefined && student.attendance_percentage !== null ? (
+                            <>
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                  student.total_classes === 0
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                    : student.attendance_percentage >= 75
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                                }`}
+                              >
+                                {student.total_classes === 0 ? 'No records' : `${student.attendance_percentage}%`}
+                              </span>
+                              {student.total_classes > 0 && student.is_low_attendance && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                                  Low
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">
+                              --
                             </span>
                           )}
                         </div>
