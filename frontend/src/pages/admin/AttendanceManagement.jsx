@@ -337,7 +337,7 @@ export const AttendanceManagement = () => {
     }
   };
 
-  const handleExportAttendance = () => {
+  const handleExportAttendance = async () => {
     const effectiveSlot = selectedTimeSlot === 'Custom Slot' ? customTimeSlot.trim() : selectedTimeSlot;
     const params = new URLSearchParams({
       class_id: String(selectedClass),
@@ -348,7 +348,22 @@ export const AttendanceManagement = () => {
     if (selectedSection) params.append('section_id', String(selectedSection));
     if (effectiveSlot) params.append('time_slot', effectiveSlot);
 
-    window.open(`/api/v1/admin/attendance/export/csv?${params.toString()}`, '_blank');
+    try {
+      const blobData = await api.get(`/admin/attendance/export/csv?${params.toString()}`, { responseType: 'blob' });
+      const blob = blobData instanceof Blob ? blobData : new Blob([blobData], { type: 'text/csv' });
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `attendance_export_${selectedDate}_${new Date().getTime()}.csv`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+      toast.success('Attendance CSV exported successfully');
+    } catch (err) {
+      toast.error(err.message || 'Failed to export attendance CSV');
+    }
   };
 
   return (

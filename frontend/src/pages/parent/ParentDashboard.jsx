@@ -300,8 +300,6 @@ export const ParentDashboard = () => {
                     <div className="pt-1.5 flex items-center">
                       <a
                         href={getFileUrl(n.attachment_path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         download
                         className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 transition-colors"
                       >

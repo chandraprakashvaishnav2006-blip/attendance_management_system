@@ -43,9 +43,21 @@ export const PDFManagement = () => {
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [downloadingDocId, setDownloadingDocId] = useState(null);
 
-  const handleViewDocument = (doc) => {
-    const viewUrl = `${API_BASE}/documents/${doc.id}/view`;
-    window.open(viewUrl, '_blank', 'noopener,noreferrer');
+  const handleViewDocument = async (doc) => {
+    try {
+      let blobData;
+      try {
+        blobData = await api.get(`/documents/${doc.id}/view`, { responseType: 'blob' });
+      } catch {
+        blobData = await api.get(`/admin/documents/${doc.id}/view`, { responseType: 'blob' });
+      }
+      const blob = blobData instanceof Blob ? blobData : new Blob([blobData], { type: doc.mime_type || 'application/pdf' });
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000);
+    } catch (err) {
+      toast.error(err.message || 'Failed to preview document');
+    }
   };
 
   const handleDownloadDocument = async (doc) => {
@@ -57,10 +69,17 @@ export const PDFManagement = () => {
         filename = `${filename}.${ext}`;
       }
 
-      // Fetch file as blob via authenticated api client
-      const blobData = await api.get(`/documents/${doc.id}/download`, {
-        responseType: 'blob',
-      });
+      // Fetch file as blob via authenticated api client with endpoint fallback
+      let blobData;
+      try {
+        blobData = await api.get(`/documents/${doc.id}/download`, {
+          responseType: 'blob',
+        });
+      } catch {
+        blobData = await api.get(`/admin/documents/${doc.id}/download`, {
+          responseType: 'blob',
+        });
+      }
 
       const blob = blobData instanceof Blob ? blobData : new Blob([blobData]);
       const blobUrl = window.URL.createObjectURL(blob);

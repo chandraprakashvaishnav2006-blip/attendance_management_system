@@ -291,8 +291,6 @@ export const NoticeManagement = () => {
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
                     <a
                       href={getFileUrl(notice.attachment_path)}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       download
                       className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 text-xs font-semibold transition-all group max-w-full"
                       title="Download attached material"

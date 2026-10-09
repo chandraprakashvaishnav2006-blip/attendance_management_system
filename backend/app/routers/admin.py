@@ -1412,41 +1412,6 @@ def get_attendance_audits(attendance_id: int, db: Session = Depends(get_db)):
         ))
     return ApiResponse(success=True, data=results)
 
-@router.get("/attendance/export/csv")
-def export_attendance_csv(
-    class_id: int | None = None,
-    subject_id: int | None = None,
-    start_date: dt.date | None = None,
-    end_date: dt.date | None = None,
-    db: Session = Depends(get_db)
-):
-    query = db.query(Attendance).join(Student)
-    if class_id:
-        query = query.filter(Student.class_id == class_id)
-    if subject_id:
-        query = query.filter(Attendance.subject_id == subject_id)
-    if start_date:
-        query = query.filter(Attendance.date >= start_date)
-    if end_date:
-        query = query.filter(Attendance.date <= end_date)
-
-    records = query.order_by(Attendance.date.desc()).all()
-    data = [
-        {
-            "date": str(r.date),
-            "roll_no": r.student.roll_no if r.student else "",
-            "student_name": r.student.name if r.student else "",
-            "subject": r.subject.name if r.subject else "",
-            "status": r.status,
-        } for r in records
-    ]
-    csv_str = export_to_csv(data)
-    return Response(
-        content=csv_str,
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=attendance_report.csv"}
-    )
-
 # -------------------------------------------------------------
 # MARKS MANAGEMENT
 # -------------------------------------------------------------
@@ -1809,6 +1774,20 @@ def delete_admin_document(doc_id: int, db: Session = Depends(get_db)):
     db.delete(doc)
     db.commit()
     return ApiResponse(success=True, message="Document deleted successfully")
+
+
+@router.get("/documents/{doc_id}/download")
+def admin_download_document(doc_id: int, db: Session = Depends(get_db)):
+    """Direct database-backed document download for admin"""
+    from app.routers.documents import download_document
+    return download_document(doc_id=doc_id, db=db)
+
+
+@router.get("/documents/{doc_id}/view")
+def admin_view_document(doc_id: int, db: Session = Depends(get_db)):
+    """Direct database-backed document preview for admin"""
+    from app.routers.documents import view_document
+    return view_document(doc_id=doc_id, db=db)
 
 # -------------------------------------------------------------
 # WARNING MANAGEMENT

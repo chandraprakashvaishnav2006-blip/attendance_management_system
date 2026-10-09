@@ -30,17 +30,20 @@ def get_safe_filename(doc: PDFDocument) -> str:
 
 def get_document_source(doc: PDFDocument, db: Session | None = None) -> tuple[str | None, bytes | None, str]:
     """
-    Returns (disk_path_if_valid, content_bytes_if_db, mime_type)
-    Checks multiple possible disk directories and database fallback.
+    Returns (disk_path_if_valid, content_bytes_if_db, mime_type).
+    Prioritizes file_data directly from PostgreSQL database.
     """
     mime_type = doc.mime_type or mimetypes.guess_type(doc.file_path or "")[0] or "application/pdf"
-    
+
+    # 1. Direct Database retrieval (cloud/PostgreSQL resilience)
+    if doc.file_data and len(doc.file_data) > 0:
+        return None, doc.file_data, mime_type
+
     clean_rel = (doc.file_path or "").lstrip("/").replace("\\", "/")
-    if clean_rel.startswith("uploads/"):
-        clean_rel = clean_rel[len("uploads/"):]
+    clean_rel = clean_rel.removeprefix("uploads/")
     filename = os.path.basename(clean_rel)
 
-    # 1. Check multiple candidate disk locations
+    # 2. Check candidate disk locations if DB does not yet have it
     candidate_dirs = [
         settings.UPLOAD_DIR,
         os.path.join(settings.UPLOAD_DIR, "materials"),
@@ -50,37 +53,22 @@ def get_document_source(doc: PDFDocument, db: Session | None = None) -> tuple[st
         os.path.join(os.getcwd(), "backend", "uploads", "materials"),
         os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads"),
         os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "materials"),
-        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "uploads"),
-        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "uploads", "materials"),
     ]
 
     for cdir in candidate_dirs:
         for fname in [clean_rel, filename]:
             p = os.path.normpath(os.path.join(cdir, fname))
             if os.path.isfile(p) and os.path.getsize(p) > 0:
-                # If DB doesn't have file_data cached, load it into DB for cloud resilience
-                if (not doc.file_data or len(doc.file_data) == 0) and db:
-                    try:
-                        with open(p, "rb") as f:
-                            doc.file_data = f.read()
-                        doc.file_size = len(doc.file_data)
+                try:
+                    with open(p, "rb") as f:
+                        file_bytes = f.read()
+                    if db and (not doc.file_data or len(doc.file_data) == 0):
+                        doc.file_data = file_bytes
+                        doc.file_size = len(file_bytes)
                         db.commit()
-                    except Exception:
-                        pass
-                return p, None, mime_type
-
-    # 2. Check if file_data is stored in database
-    if doc.file_data and len(doc.file_data) > 0:
-        # Cache to disk for high performance if possible
-        try:
-            target_path = os.path.join(settings.UPLOAD_DIR, clean_rel)
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            with open(target_path, "wb") as f:
-                f.write(doc.file_data)
-            return target_path, None, mime_type
-        except Exception:
-            # If disk is read-only / ephemeral container, return bytes directly
-            return None, doc.file_data, mime_type
+                    return None, file_bytes, mime_type
+                except Exception:
+                    return p, None, mime_type
 
     return None, None, mime_type
 
@@ -88,7 +76,7 @@ def get_document_source(doc: PDFDocument, db: Session | None = None) -> tuple[st
 @router.get("/{doc_id}/view")
 def view_document(doc_id: int, db: Session = Depends(get_db)):
     """
-    Renders/views a document inline in the browser (PDF viewer, image viewer, etc.).
+    Renders/views a document inline in the browser directly through database or disk.
     """
     doc = db.query(PDFDocument).filter(PDFDocument.id == doc_id).first()
     if not doc:
@@ -97,7 +85,6 @@ def view_document(doc_id: int, db: Session = Depends(get_db)):
     safe_filename = get_safe_filename(doc)
     disk_path, doc_bytes, mime_type = get_document_source(doc, db)
 
-    # Encode filename for RFC 5987 Content-Disposition
     ascii_filename = re.sub(r'[^\x20-\x7E]', '_', safe_filename)
     encoded_filename = urllib.parse.quote(safe_filename)
     content_disp = f'inline; filename="{ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}'
@@ -108,19 +95,11 @@ def view_document(doc_id: int, db: Session = Depends(get_db)):
         "Access-Control-Expose-Headers": "Content-Disposition, Content-Length",
         "Cache-Control": "public, max-age=3600",
     }
-
-    if disk_path:
-        return FileResponse(
-            path=disk_path,
-            media_type=mime_type,
-            headers=headers
-        )
-    elif doc_bytes:
-        return Response(
-            content=doc_bytes,
-            media_type=mime_type,
-            headers=headers
-        )
+    if doc_bytes:
+        headers["Content-Length"] = str(len(doc_bytes))
+        return Response(content=doc_bytes, media_type=mime_type, headers=headers)
+    elif disk_path:
+        return FileResponse(path=disk_path, media_type=mime_type, headers=headers)
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,7 +110,7 @@ def view_document(doc_id: int, db: Session = Depends(get_db)):
 @router.get("/{doc_id}/download")
 def download_document(doc_id: int, db: Session = Depends(get_db)):
     """
-    Downloads a document as an attachment and increments download counter.
+    Downloads a document as an attachment directly through database and increments download counter.
     """
     doc = db.query(PDFDocument).filter(PDFDocument.id == doc_id).first()
     if not doc:
@@ -154,19 +133,11 @@ def download_document(doc_id: int, db: Session = Depends(get_db)):
         "Access-Control-Expose-Headers": "Content-Disposition, Content-Length",
     }
 
-    if disk_path:
-        return FileResponse(
-            path=disk_path,
-            media_type=mime_type,
-            filename=safe_filename,
-            headers=headers
-        )
-    elif doc_bytes:
-        return Response(
-            content=doc_bytes,
-            media_type=mime_type,
-            headers=headers
-        )
+    if doc_bytes:
+        headers["Content-Length"] = str(len(doc_bytes))
+        return Response(content=doc_bytes, media_type=mime_type, headers=headers)
+    elif disk_path:
+        return FileResponse(path=disk_path, media_type=mime_type, filename=safe_filename, headers=headers)
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

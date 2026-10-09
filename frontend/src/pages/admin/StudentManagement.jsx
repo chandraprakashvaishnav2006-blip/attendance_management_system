@@ -274,9 +274,24 @@ export const StudentManagement = () => {
     }
   };
 
-  const handleExportCSV = () => {
-    const url = `/api/v1/admin/students-export/csv${classFilter ? `?class_id=${classFilter}` : ''}`;
-    window.open(url, '_blank');
+  const handleExportCSV = async () => {
+    try {
+      const url = `/admin/students-export/csv${classFilter ? `?class_id=${classFilter}` : ''}`;
+      const blobData = await api.get(url, { responseType: 'blob' });
+      const blob = blobData instanceof Blob ? blobData : new Blob([blobData], { type: 'text/csv' });
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `students_export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+      toast.success('CSV exported successfully');
+    } catch (err) {
+      toast.error(err.message || 'Failed to export CSV');
+    }
   };
 
   return (

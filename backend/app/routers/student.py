@@ -231,3 +231,17 @@ def track_document_download(
         doc.download_count += 1
         db.commit()
     return ApiResponse(success=True, message="Download registered")
+
+
+@router.get("/documents/{doc_id}/download")
+def student_download_document(doc_id: int, db: Session = Depends(get_db)):
+    """Direct database-backed document download for students"""
+    from app.routers.documents import download_document
+    return download_document(doc_id=doc_id, db=db)
+
+
+@router.get("/documents/{doc_id}/view")
+def student_view_document(doc_id: int, db: Session = Depends(get_db)):
+    """Direct database-backed document preview for students"""
+    from app.routers.documents import view_document
+    return view_document(doc_id=doc_id, db=db)

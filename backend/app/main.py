@@ -110,42 +110,61 @@ async def add_security_headers_middleware(request: Request, call_next):
         response.headers["Expires"] = "0"
     return response
 
-# Resilient Uploads Serving: Checks disk first, automatically recovers from Neon DB if container restarted
-@app.get("/uploads/{subfolder}/{filename}")
-def serve_uploaded_file(subfolder: str, filename: str, db: Session = Depends(get_db)):
-    file_path = os.path.join(settings.UPLOAD_DIR, subfolder, filename)
-    if os.path.isfile(file_path) and os.path.getsize(file_path) > 0:
-        mime_type, _ = mimetypes.guess_type(filename)
-        return FileResponse(file_path, media_type=mime_type or "application/octet-stream")
+# Resilient Uploads Serving: Prioritizes database bytes directly for cloud container resilience
+def _serve_db_or_disk_file(subfolder: str | None, filename: str, db: Session):
+    import urllib.parse
+    clean_fname = urllib.parse.unquote(filename)
+    mime_type, _ = mimetypes.guess_type(clean_fname)
+    media_type = mime_type or "application/octet-stream"
 
-    # If missing on disk (e.g. Render restart/ephemeral disk), recover from PostgreSQL DB
-    target_rel = f"/uploads/{subfolder}/{filename}"
+    # 1. Recover from PostgreSQL DB (PDF Documents)
     doc = db.query(PDFDocument).filter(
-        (PDFDocument.file_path == target_rel) | (PDFDocument.file_path.ilike(f"%{filename}"))
+        (PDFDocument.file_path.ilike(f"%{clean_fname}")) | (PDFDocument.title.ilike(f"%{clean_fname}%"))
     ).first()
     if doc and doc.file_data and len(doc.file_data) > 0:
-        try:
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            with open(file_path, "wb") as f:
-                f.write(doc.file_data)
-        except Exception:
-            pass
-        return Response(content=doc.file_data, media_type=doc.mime_type or "application/pdf")
+        safe_fname = urllib.parse.quote(clean_fname)
+        headers = {
+            "Content-Disposition": f'inline; filename="{clean_fname}"; filename*=UTF-8\'\'{safe_fname}',
+            "Content-Length": str(len(doc.file_data)),
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Expose-Headers": "Content-Disposition, Content-Length",
+        }
+        return Response(content=doc.file_data, media_type=doc.mime_type or media_type, headers=headers)
 
+    # 2. Recover from PostgreSQL DB (Notices / Announcements)
     notice = db.query(Notice).filter(
-        (Notice.attachment_path == target_rel) | (Notice.attachment_path.ilike(f"%{filename}"))
+        (Notice.attachment_path.ilike(f"%{clean_fname}"))
     ).first()
     if notice and notice.attachment_data and len(notice.attachment_data) > 0:
-        try:
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            with open(file_path, "wb") as f:
-                f.write(notice.attachment_data)
-        except Exception:
-            pass
-        mime_type, _ = mimetypes.guess_type(filename)
-        return Response(content=notice.attachment_data, media_type=mime_type or "application/octet-stream")
+        safe_fname = urllib.parse.quote(clean_fname)
+        headers = {
+            "Content-Disposition": f'inline; filename="{clean_fname}"; filename*=UTF-8\'\'{safe_fname}',
+            "Content-Length": str(len(notice.attachment_data)),
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Expose-Headers": "Content-Disposition, Content-Length",
+        }
+        return Response(content=notice.attachment_data, media_type=media_type, headers=headers)
 
-    return JSONResponse(status_code=404, content={"success": False, "message": f"File '{filename}' not found on server or database."})
+    # 3. Fallback to candidate disk paths
+    parts = [settings.UPLOAD_DIR]
+    if subfolder:
+        parts.append(subfolder)
+    parts.append(clean_fname)
+    file_path = os.path.join(*parts)
+    if os.path.isfile(file_path) and os.path.getsize(file_path) > 0:
+        return FileResponse(file_path, media_type=media_type)
+
+    return JSONResponse(status_code=404, content={"success": False, "message": f"File '{clean_fname}' not found on server or database."})
+
+
+@app.get("/uploads/{subfolder}/{filename}")
+def serve_uploaded_file(subfolder: str, filename: str, db: Session = Depends(get_db)):
+    return _serve_db_or_disk_file(subfolder, filename, db)
+
+
+@app.get("/uploads/{filename}")
+def serve_uploaded_root_file(filename: str, db: Session = Depends(get_db)):
+    return _serve_db_or_disk_file(None, filename, db)
 
 # Static fallback mount
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
