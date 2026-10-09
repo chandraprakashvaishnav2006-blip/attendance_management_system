@@ -33,7 +33,11 @@ const TIME_SLOT_OPTIONS = [
 
 export const AttendanceManagement = () => {
   const [classes, setClasses] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [sections, setSections] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split('T')[0]
@@ -58,12 +62,33 @@ export const AttendanceManagement = () => {
   const selectedClassObj = classes.find((c) => String(c.id) === String(selectedClass));
   const availableSubjects = selectedClassObj?.subjects || [];
 
+  // Filter sections that belong to the selected class (and branch if selected)
+  const availableSections = sections.filter((s) => {
+    const matchClass = !selectedClass || String(s.class_id) === String(selectedClass);
+    const matchBranch = !selectedBranch || String(s.branch_id) === String(selectedBranch);
+    return matchClass && matchBranch;
+  });
+
+  // Reset selected section if it no longer matches the available sections list
+  useEffect(() => {
+    if (selectedSection) {
+      const exists = availableSections.some((s) => String(s.id) === String(selectedSection));
+      if (!exists) {
+        setSelectedSection('');
+      }
+    }
+  }, [selectedClass, selectedBranch, availableSections, selectedSection]);
+
   const fetchAcademicData = async () => {
     try {
-      const classRes = await api.get('/admin/classes');
+      const [classRes, brRes, secRes] = await Promise.all([
+        api.get('/admin/classes'),
+        api.get('/admin/branches'),
+        api.get('/admin/sections'),
+      ]);
       if (classRes.success) {
-        setClasses(classRes.data);
-        if (classRes.data.length > 0) {
+        setClasses(classRes.data || []);
+        if (classRes.data?.length > 0) {
           const firstClass = classRes.data[0];
           setSelectedClass(String(firstClass.id));
           if (firstClass.subjects && firstClass.subjects.length > 0) {
@@ -71,8 +96,10 @@ export const AttendanceManagement = () => {
           }
         }
       }
+      if (brRes.success) setBranches(brRes.data || []);
+      if (secRes.success) setSections(secRes.data || []);
     } catch {
-      toast.error('Failed to load classes and subjects');
+      toast.error('Failed to load classes, branches, and subjects');
     }
   };
 
@@ -165,15 +192,32 @@ export const AttendanceManagement = () => {
     if (!selectedClass || !selectedSubject) return;
     setLoading(true);
     try {
-      // 1. Fetch students for the class (alphabetical order) with cache buster
-      const studRes = await api.get(`/admin/students?class_id=${selectedClass}&page=1&page_size=100&sort_by=name&sort_order=asc&_t=${Date.now()}`);
+      // 1. Fetch students for the class, branch, and section (alphabetical order) with cache buster
+      const studentParams = new URLSearchParams({
+        class_id: String(selectedClass),
+        page: '1',
+        page_size: '100',
+        sort_by: 'name',
+        sort_order: 'asc',
+        _t: String(Date.now()),
+      });
+      if (selectedBranch) studentParams.append('branch_id', selectedBranch);
+      if (selectedSection) studentParams.append('section_id', selectedSection);
+
+      const studRes = await api.get(`/admin/students?${studentParams.toString()}`);
       const fetchedStudents = (studRes.data?.items || []).sort((a, b) => a.name.localeCompare(b.name));
       setStudents(fetchedStudents);
 
-      // 2. Fetch existing attendance for this class, subject, date
-      const attRes = await api.get(
-        `/admin/attendance?class_id=${selectedClass}&subject_id=${selectedSubject}&date_val=${selectedDate}`
-      );
+      // 2. Fetch existing attendance for this class, subject, date, branch, section
+      const attParams = new URLSearchParams({
+        class_id: String(selectedClass),
+        subject_id: String(selectedSubject),
+        date_val: String(selectedDate),
+      });
+      if (selectedBranch) attParams.append('branch_id', selectedBranch);
+      if (selectedSection) attParams.append('section_id', selectedSection);
+
+      const attRes = await api.get(`/admin/attendance?${attParams.toString()}`);
       const existingRecords = attRes.data || [];
 
       // Build status and slot maps (default to Present if not yet recorded)
@@ -219,7 +263,7 @@ export const AttendanceManagement = () => {
 
   useEffect(() => {
     fetchAttendanceSheet();
-  }, [selectedClass, selectedSubject, selectedDate]);
+  }, [selectedClass, selectedBranch, selectedSection, selectedSubject, selectedDate]);
 
   const handleMarkAll = (status) => {
     const updated = {};
@@ -295,11 +339,16 @@ export const AttendanceManagement = () => {
 
   const handleExportAttendance = () => {
     const effectiveSlot = selectedTimeSlot === 'Custom Slot' ? customTimeSlot.trim() : selectedTimeSlot;
-    let url = `/api/v1/admin/attendance/export/csv?class_id=${selectedClass}&subject_id=${selectedSubject}&date_val=${selectedDate}`;
-    if (effectiveSlot) {
-      url += `&time_slot=${encodeURIComponent(effectiveSlot)}`;
-    }
-    window.open(url, '_blank');
+    const params = new URLSearchParams({
+      class_id: String(selectedClass),
+      subject_id: String(selectedSubject),
+      date_val: String(selectedDate),
+    });
+    if (selectedBranch) params.append('branch_id', String(selectedBranch));
+    if (selectedSection) params.append('section_id', String(selectedSection));
+    if (effectiveSlot) params.append('time_slot', effectiveSlot);
+
+    window.open(`/api/v1/admin/attendance/export/csv?${params.toString()}`, '_blank');
   };
 
   return (
@@ -311,7 +360,7 @@ export const AttendanceManagement = () => {
             Attendance Administration
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Log real-time attendance, modify past dates with audit logging, and export class reports
+            Log real-time attendance by class, branch, and section with audit logging & reports
           </p>
         </div>
 
@@ -324,9 +373,9 @@ export const AttendanceManagement = () => {
         </button>
       </div>
 
-      {/* Control Bar: Class, Subject, Date, Period Slot, Mark All */}
+      {/* Control Bar: Class, Branch, Section, Subject, Date, Period Slot, Mark All */}
       <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5 items-start">
           {/* Class / Course */}
           <div className="min-w-0">
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 truncate">
@@ -340,6 +389,44 @@ export const AttendanceManagement = () => {
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Branch / Department */}
+          <div className="min-w-0">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 truncate">
+              Branch
+            </label>
+            <select
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none truncate"
+            >
+              <option value="">All Branches</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.code} ({b.name})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Section */}
+          <div className="min-w-0">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 truncate">
+              Section
+            </label>
+            <select
+              value={selectedSection}
+              onChange={(e) => setSelectedSection(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none truncate"
+            >
+              <option value="">All Sections</option>
+              {availableSections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  Section {s.name} {s.branch_code ? `(${s.branch_code})` : ''}
                 </option>
               ))}
             </select>
@@ -385,7 +472,7 @@ export const AttendanceManagement = () => {
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60 truncate"
             >
               {availableSubjects.length === 0 ? (
-                <option value="">No subjects assigned to this semester</option>
+                <option value="">No subjects assigned</option>
               ) : (
                 availableSubjects.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -451,7 +538,7 @@ export const AttendanceManagement = () => {
 
         {/* Action Shortcuts & Save */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-slate-500">Quick Shortcuts:</span>
             <button
               type="button"
@@ -467,6 +554,9 @@ export const AttendanceManagement = () => {
             >
               Mark All Absent
             </button>
+            <span className="text-xs text-slate-400 ml-2 hidden sm:inline">
+              ({students.length} student{students.length === 1 ? '' : 's'} in sheet)
+            </span>
           </div>
 
           <button
@@ -490,8 +580,12 @@ export const AttendanceManagement = () => {
         ) : students.length === 0 ? (
           <EmptyState
             icon={CalendarCheck}
-            title="No students enrolled in this class"
-            description="Select another class or register students into this class first."
+            title="No students found"
+            description={
+              selectedBranch || selectedSection
+                ? "No students match the selected class, branch, or section."
+                : "Select another class or register students into this class first."
+            }
           />
         ) : (
           <div className="overflow-x-auto">
@@ -500,6 +594,7 @@ export const AttendanceManagement = () => {
                 <tr>
                   <th className="py-3.5 px-4">Roll No</th>
                   <th className="py-3.5 px-4">Student Name</th>
+                  <th className="py-3.5 px-4">Branch</th>
                   <th className="py-3.5 px-4">Section</th>
                   <th className="py-3.5 px-4">Overall Attendance</th>
                   <th className="py-3.5 px-4">Period / Slot</th>
@@ -521,7 +616,18 @@ export const AttendanceManagement = () => {
                       <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
                         {student.name}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-500">Sec {student.section}</td>
+                      <td className="py-3.5 px-4">
+                        {student.branch_code ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                            {student.branch_code}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 font-medium text-slate-700 dark:text-slate-300">
+                        Sec {student.section_name || student.section || 'A'}
+                      </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1.5">
                           {student.attendance_percentage !== undefined && student.attendance_percentage !== null ? (

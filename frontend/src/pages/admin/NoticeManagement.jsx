@@ -23,6 +23,10 @@ import { SkeletonLoader } from '../../components/common/SkeletonLoader';
 import { EmptyState } from '../../components/common/EmptyState';
 import toast from 'react-hot-toast';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const BACKEND_BASE = API_BASE.startsWith('http') ? API_BASE.replace(/\/api\/v1\/?$/, '') : '';
+const getFileUrl = (path) => (!path ? '#' : path.startsWith('http') ? path : `${BACKEND_BASE}${path}`);
+
 export const NoticeManagement = () => {
   const [notices, setNotices] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -286,7 +290,7 @@ export const NoticeManagement = () => {
                 {notice.attachment_path && (
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
                     <a
-                      href={notice.attachment_path}
+                      href={getFileUrl(notice.attachment_path)}
                       target="_blank"
                       rel="noopener noreferrer"
                       download

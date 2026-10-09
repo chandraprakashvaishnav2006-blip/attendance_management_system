@@ -1,7 +1,7 @@
 import datetime as dt
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -17,6 +17,7 @@ class Notice(Base):
     target_audience: Mapped[str] = mapped_column(String(50), default="all")  # all, students, parents, class
     class_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True)
     attachment_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    attachment_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
     publish_date: Mapped[dt.date] = mapped_column(Date, default=dt.date.today)
     expiry_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -37,6 +38,7 @@ class PDFDocument(Base):
     class_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True)
     subject_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
     download_count: Mapped[int] = mapped_column(Integer, default=0)
+    file_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
     uploaded_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
 

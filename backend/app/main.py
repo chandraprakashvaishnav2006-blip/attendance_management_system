@@ -1,14 +1,16 @@
 import logging
+import mimetypes
 import os
 import time
 
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger("uvicorn.error")
@@ -17,9 +19,10 @@ logger = logging.getLogger("uvicorn.error")
 from app.core.config import settings
 from app.core.rate_limiter import limiter
 from app.core.security import decode_token
-from app.db.session import Base, SessionLocal, engine
+from app.db.session import Base, SessionLocal, engine, get_db
 import app.models
-from app.routers import admin, auth, functions, parent, student
+from app.models.communication import Notice, PDFDocument
+from app.routers import admin, auth, documents, functions, parent, student
 from app.services.function_tracker import record_function_execution, seed_system_functions
 
 # Ensure upload directories exist
@@ -43,9 +46,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$|^https:\/\/.*\.onrender\.com$|^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "Content-Length", "Content-Type"],
 )
 
 # Global Exception Handlers for consistent API responses
@@ -93,16 +98,56 @@ async def general_exception_handler(request: Request, exc: Exception):
 async def add_security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    # Allow in-browser PDF viewers and previewers to render without frame blocking
+    req_path = request.url.path.lower()
+    if not (req_path.startswith("/uploads/") or "/view" in req_path or req_path.endswith(".pdf")):
+        response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    if request.url.path.startswith("/api/"):
+    if request.url.path.startswith("/api/") and not ("/download" in req_path or "/view" in req_path):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
     return response
 
-# Mount Uploads for direct PDF download and preview
+# Resilient Uploads Serving: Checks disk first, automatically recovers from Neon DB if container restarted
+@app.get("/uploads/{subfolder}/{filename}")
+def serve_uploaded_file(subfolder: str, filename: str, db: Session = Depends(get_db)):
+    file_path = os.path.join(settings.UPLOAD_DIR, subfolder, filename)
+    if os.path.isfile(file_path) and os.path.getsize(file_path) > 0:
+        mime_type, _ = mimetypes.guess_type(filename)
+        return FileResponse(file_path, media_type=mime_type or "application/octet-stream")
+
+    # If missing on disk (e.g. Render restart/ephemeral disk), recover from PostgreSQL DB
+    target_rel = f"/uploads/{subfolder}/{filename}"
+    doc = db.query(PDFDocument).filter(
+        (PDFDocument.file_path == target_rel) | (PDFDocument.file_path.ilike(f"%{filename}"))
+    ).first()
+    if doc and doc.file_data and len(doc.file_data) > 0:
+        try:
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "wb") as f:
+                f.write(doc.file_data)
+        except Exception:
+            pass
+        return Response(content=doc.file_data, media_type=doc.mime_type or "application/pdf")
+
+    notice = db.query(Notice).filter(
+        (Notice.attachment_path == target_rel) | (Notice.attachment_path.ilike(f"%{filename}"))
+    ).first()
+    if notice and notice.attachment_data and len(notice.attachment_data) > 0:
+        try:
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "wb") as f:
+                f.write(notice.attachment_data)
+        except Exception:
+            pass
+        mime_type, _ = mimetypes.guess_type(filename)
+        return Response(content=notice.attachment_data, media_type=mime_type or "application/octet-stream")
+
+    return JSONResponse(status_code=404, content={"success": False, "message": f"File '{filename}' not found on server or database."})
+
+# Static fallback mount
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 @app.middleware("http")
@@ -176,6 +221,7 @@ app.include_router(admin.router, prefix=api_prefix)
 app.include_router(student.router, prefix=api_prefix)
 app.include_router(parent.router, prefix=api_prefix)
 app.include_router(functions.router, prefix=api_prefix)
+app.include_router(documents.router, prefix=api_prefix)
 
 @app.on_event("startup")
 def startup_event():

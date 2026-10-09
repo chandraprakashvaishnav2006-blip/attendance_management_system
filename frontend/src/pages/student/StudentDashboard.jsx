@@ -19,6 +19,10 @@ import { Badge } from '../../components/common/Badge';
 import { SkeletonLoader } from '../../components/common/SkeletonLoader';
 import toast from 'react-hot-toast';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const BACKEND_BASE = API_BASE.startsWith('http') ? API_BASE.replace(/\/api\/v1\/?$/, '') : '';
+const getFileUrl = (path) => (!path ? '#' : path.startsWith('http') ? path : `${BACKEND_BASE}${path}`);
+
 export const StudentDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -279,7 +283,7 @@ export const StudentDashboard = () => {
                     {n.attachment_path && (
                       <div className="pt-1.5 flex items-center">
                         <a
-                          href={n.attachment_path}
+                          href={getFileUrl(n.attachment_path)}
                           target="_blank"
                           rel="noopener noreferrer"
                           download

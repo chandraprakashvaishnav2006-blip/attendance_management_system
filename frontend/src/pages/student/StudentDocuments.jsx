@@ -56,18 +56,46 @@ export const StudentDocuments = () => {
     fetchDocuments();
   }, [categoryFilter, search]);
 
+  const [downloadingDocId, setDownloadingDocId] = useState(null);
+
+  const handleView = (doc) => {
+    const viewUrl = `${BACKEND_BASE}/api/v1/documents/${doc.id}/view`;
+    window.open(viewUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const handleDownload = async (doc) => {
     try {
-      await api.post(`/student/documents/${doc.id}/download-count`);
-      const fileUrl = getFileUrl(doc.file_path);
+      setDownloadingDocId(doc.id);
+      const downloadUrl = `${BACKEND_BASE}/api/v1/documents/${doc.id}/download`;
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
       const link = document.createElement('a');
-      link.href = fileUrl;
-      link.download = doc.title;
+      link.href = blobUrl;
+      let filename = doc.title || 'study_material';
+      const ext = (doc.file_path || '').split('.').pop();
+      if (ext && !filename.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) {
+        filename = `${filename}.${ext}`;
+      }
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === doc.id ? { ...d, download_count: (d.download_count || 0) + 1 } : d))
+      );
+      toast.success('Downloaded successfully');
     } catch {
-      window.open(getFileUrl(doc.file_path), '_blank');
+      const directUrl = `${BACKEND_BASE}/api/v1/documents/${doc.id}/download`;
+      window.open(directUrl, '_blank');
+    } finally {
+      setDownloadingDocId(null);
     }
   };
 
@@ -236,18 +264,19 @@ export const StudentDocuments = () => {
                     Downloaded {doc.download_count} times
                   </span>
                   <div className="flex items-center gap-2">
-                    <a
-                      href={doc.file_path}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => handleView(doc)}
                       className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                       title="View / Open Online"
                     >
                       <Eye className="w-4 h-4" />
-                    </a>
+                    </button>
                     <button
+                      type="button"
                       onClick={() => handleDownload(doc)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                      disabled={downloadingDocId === doc.id}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50"
                     >
                       <Download className="w-3.5 h-3.5" />
                       Download

@@ -41,6 +41,48 @@ export const PDFManagement = () => {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [downloadingDocId, setDownloadingDocId] = useState(null);
+
+  const handleViewDocument = (doc) => {
+    const viewUrl = `${BACKEND_BASE}/api/v1/documents/${doc.id}/view`;
+    window.open(viewUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleDownloadDocument = async (doc) => {
+    try {
+      setDownloadingDocId(doc.id);
+      const downloadUrl = `${BACKEND_BASE}/api/v1/documents/${doc.id}/download`;
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      let filename = doc.title || 'document';
+      const ext = (doc.file_path || '').split('.').pop();
+      if (ext && !filename.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) {
+        filename = `${filename}.${ext}`;
+      }
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === doc.id ? { ...d, download_count: (d.download_count || 0) + 1 } : d))
+      );
+      toast.success('Document downloaded');
+    } catch {
+      const directUrl = `${BACKEND_BASE}/api/v1/documents/${doc.id}/download`;
+      window.open(directUrl, '_blank');
+    } finally {
+      setDownloadingDocId(null);
+    }
+  };
 
   // Upload Mode: 'files' | 'folder'
   const [uploadMode, setUploadMode] = useState('files');
@@ -440,23 +482,23 @@ export const PDFManagement = () => {
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <a
-                            href={getFileUrl(doc.file_path)}
-                            target="_blank"
-                            rel="noreferrer"
-                            title="Preview / Open"
+                          <button
+                            type="button"
+                            onClick={() => handleViewDocument(doc)}
+                            title="Preview / Open in New Tab"
                             className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                           >
                             <Eye className="w-4 h-4" />
-                          </a>
-                          <a
-                            href={getFileUrl(doc.file_path)}
-                            download
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadDocument(doc)}
+                            disabled={downloadingDocId === doc.id}
                             title="Download Document"
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                           >
                             <Download className="w-4 h-4" />
-                          </a>
+                          </button>
                           <button
                             onClick={() => {
                               setSelectedDoc(doc);

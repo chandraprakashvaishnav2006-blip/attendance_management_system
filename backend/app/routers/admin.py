@@ -1192,6 +1192,9 @@ def delete_parent(parent_id: int, db: Session = Depends(get_db)):
 @router.get("/attendance", response_model=ApiResponse[list[AttendanceOut]])
 def list_attendance(
     class_id: int | None = None,
+    branch_id: int | None = None,
+    section_id: int | None = None,
+    section: str | None = None,
     subject_id: int | None = None,
     date_val: dt.date | None = None,
     student_id: int | None = None,
@@ -1207,10 +1210,16 @@ def list_attendance(
         query = query.filter(Attendance.date == date_val)
     if time_slot:
         query = query.filter(Attendance.time_slot == time_slot)
+    
+    query = query.join(Student, Attendance.student_id == Student.id)
     if class_id:
-        query = query.join(Student, Attendance.student_id == Student.id).filter(Student.class_id == class_id)
-    else:
-        query = query.join(Student, Attendance.student_id == Student.id)
+        query = query.filter(Student.class_id == class_id)
+    if branch_id:
+        query = query.filter(Student.branch_id == branch_id)
+    if section_id:
+        query = query.filter(Student.section_id == section_id)
+    if section:
+        query = query.filter(Student.section.ilike(section))
 
     attendances = query.order_by(Attendance.date.desc(), func.lower(Student.name).asc()).all()
     results = []
@@ -1220,6 +1229,9 @@ def list_attendance(
             student_id=a.student_id,
             student_name=a.student.name if a.student else None,
             student_roll_no=a.student.roll_no if a.student else None,
+            branch_name=a.student.branch.name if (a.student and a.student.branch) else None,
+            branch_code=a.student.branch.code if (a.student and a.student.branch) else None,
+            section_name=a.student.section_model.name if (a.student and a.student.section_model) else (a.student.section if a.student else None),
             subject_id=a.subject_id,
             subject_name=a.subject.name if a.subject else None,
             subject_code=a.subject.code if a.subject else None,
@@ -1235,6 +1247,9 @@ def list_attendance(
 @router.get("/attendance/export/csv")
 def export_attendance_csv(
     class_id: int | None = None,
+    branch_id: int | None = None,
+    section_id: int | None = None,
+    section: str | None = None,
     subject_id: int | None = None,
     date_val: dt.date | None = None,
     time_slot: str | None = None,
@@ -1247,10 +1262,16 @@ def export_attendance_csv(
         query = query.filter(Attendance.date == date_val)
     if time_slot:
         query = query.filter(Attendance.time_slot == time_slot)
+    
+    query = query.join(Student, Attendance.student_id == Student.id)
     if class_id:
-        query = query.join(Student, Attendance.student_id == Student.id).filter(Student.class_id == class_id)
-    else:
-        query = query.join(Student, Attendance.student_id == Student.id)
+        query = query.filter(Student.class_id == class_id)
+    if branch_id:
+        query = query.filter(Student.branch_id == branch_id)
+    if section_id:
+        query = query.filter(Student.section_id == section_id)
+    if section:
+        query = query.filter(Student.section.ilike(section))
 
     attendances = query.order_by(Attendance.date.desc(), func.lower(Student.name).asc()).all()
 
@@ -1260,7 +1281,8 @@ def export_attendance_csv(
             "roll_no": a.student.roll_no if a.student else "",
             "student_name": a.student.name if a.student else "",
             "class": a.student.class_group.name if (a.student and a.student.class_group) else "",
-            "section": a.student.section if a.student else "",
+            "branch": a.student.branch.code if (a.student and a.student.branch) else "",
+            "section": a.student.section_model.name if (a.student and a.student.section_model) else (a.student.section if a.student else ""),
             "subject": a.subject.name if a.subject else "",
             "subject_code": a.subject.code if a.subject else "",
             "status": a.status,
@@ -1607,7 +1629,7 @@ def upload_notice_attachment(
     folder_name: str | None = Form(None),
     current_admin: User = Depends(require_role("ADMIN")),
 ):
-    rel_path, file_size, mime_type, orig_name = save_files_or_folder_as_bundle(
+    rel_path, file_size, mime_type, orig_name, att_bytes = save_files_or_folder_as_bundle(
         files=files,
         folder_name=folder_name,
         subfolder="announcements"
@@ -1678,7 +1700,7 @@ def upload_admin_document(
     current_admin: User = Depends(require_role("ADMIN")),
     db: Session = Depends(get_db)
 ):
-    rel_path, file_size, mime_type, orig_name = validate_and_save_file(file, subfolder="materials")
+    rel_path, file_size, mime_type, orig_name, file_content = validate_and_save_file(file, subfolder="materials")
 
     doc = PDFDocument(
         title=title or orig_name,
@@ -1689,6 +1711,7 @@ def upload_admin_document(
         class_id=class_id,
         subject_id=subject_id,
         download_count=0,
+        file_data=file_content,
         uploaded_by=current_admin.id
     )
     db.add(doc)
@@ -1732,7 +1755,7 @@ def upload_admin_documents_batch(
     for file in files:
         if not file.filename:
             continue
-        rel_path, file_size, mime_type, orig_name = validate_and_save_file(file, subfolder="materials")
+        rel_path, file_size, mime_type, orig_name, file_content = validate_and_save_file(file, subfolder="materials")
         doc_title = f"[{folder_name}] {orig_name}" if folder_name else orig_name
         doc = PDFDocument(
             title=doc_title,
@@ -1743,6 +1766,7 @@ def upload_admin_documents_batch(
             class_id=class_id,
             subject_id=subject_id,
             download_count=0,
+            file_data=file_content,
             uploaded_by=current_admin.id
         )
         db.add(doc)

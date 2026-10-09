@@ -40,11 +40,11 @@ MIME_MAP = {
 }
 
 
-def validate_and_save_file(file: UploadFile, subfolder: str = "materials") -> tuple[str, int, str, str]:
+def validate_and_save_file(file: UploadFile, subfolder: str = "materials") -> tuple[str, int, str, str, bytes]:
     """
     Validates any document or folder archive (rejects dangerous executable files)
     and saves to uploads directory.
-    Returns: (rel_path, file_size, mime_type, original_filename)
+    Returns: (rel_path, file_size, mime_type, original_filename, content_bytes)
     """
     original_name = file.filename or "uploaded_document"
     _, ext = os.path.splitext(original_name)
@@ -75,7 +75,10 @@ def validate_and_save_file(file: UploadFile, subfolder: str = "materials") -> tu
 
     # Create destination directory
     target_dir = os.path.join(settings.UPLOAD_DIR, subfolder)
-    os.makedirs(target_dir, exist_ok=True)
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+    except Exception:
+        pass
 
     # Generate safe unique filename
     unique_suffix = uuid.uuid4().hex[:10]
@@ -84,20 +87,23 @@ def validate_and_save_file(file: UploadFile, subfolder: str = "materials") -> tu
     unique_filename = f"{safe_basename}_{unique_suffix}{ext_lower}"
     file_path = os.path.join(target_dir, unique_filename)
 
-    with open(file_path, "wb") as f:
-        f.write(content)
+    try:
+        with open(file_path, "wb") as f:
+            f.write(content)
+    except Exception:
+        pass
 
     # Reset file cursor just in case
     file.file.seek(0)
 
-    # Return relative URL/path
+    # Return relative URL/path and binary content
     rel_path = f"/uploads/{subfolder}/{unique_filename}"
-    return rel_path, file_size, mime_type, original_name
+    return rel_path, file_size, mime_type, original_name, content
 
 
 # Backward compatibility alias
 def validate_and_save_pdf(file: UploadFile, subfolder: str = "materials") -> tuple[str, int]:
-    rel_path, file_size, _, _ = validate_and_save_file(file, subfolder=subfolder)
+    rel_path, file_size, _, _, _ = validate_and_save_file(file, subfolder=subfolder)
     return rel_path, file_size
 
 
@@ -105,18 +111,21 @@ def save_files_or_folder_as_bundle(
     files: list[UploadFile],
     folder_name: str | None = None,
     subfolder: str = "announcements"
-) -> tuple[str, int, str, str]:
+) -> tuple[str, int, str, str, bytes]:
     """
     Handles single file upload or folder/multiple-file upload.
     If multiple files or a folder name is supplied, packages them into a clean .zip archive.
     If a single file without a folder name is supplied, saves as the original file.
-    Returns: (rel_path, file_size, mime_type, original_or_bundle_name)
+    Returns: (rel_path, file_size, mime_type, original_or_bundle_name, content_bytes)
     """
     if not files:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No files provided for upload.")
 
     target_dir = os.path.join(settings.UPLOAD_DIR, subfolder)
-    os.makedirs(target_dir, exist_ok=True)
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+    except Exception:
+        pass
     max_size_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
     # Single file case and not designated as a folder
@@ -155,16 +164,25 @@ def save_files_or_folder_as_bundle(
     zip_filename = f"{clean_label}_{unique_suffix}.zip"
     zip_path = os.path.join(target_dir, zip_filename)
 
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+    import io
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for orig_path, data in file_contents:
             clean_arcname = orig_path.replace("\\", "/").lstrip("/")
             parts = [p for p in clean_arcname.split("/") if p and p != ".."]
             arcname = "/".join(parts) if parts else os.path.basename(orig_path)
             zf.writestr(arcname, data)
 
-    final_size = os.path.getsize(zip_path)
+    zip_bytes = zip_buffer.getvalue()
+    try:
+        with open(zip_path, "wb") as f:
+            f.write(zip_bytes)
+        final_size = os.path.getsize(zip_path)
+    except Exception:
+        final_size = len(zip_bytes)
+
     rel_path = f"/uploads/{subfolder}/{zip_filename}"
     display_name = f"{clean_label}.zip"
 
-    return rel_path, final_size, "application/zip", display_name
+    return rel_path, final_size, "application/zip", display_name, zip_bytes
 

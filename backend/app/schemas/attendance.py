@@ -39,6 +39,9 @@ class AttendanceOut(BaseModel):
     subject_code: str | None = None
     date: dt.date
     status: str
+    branch_name: str | None = None
+    branch_code: str | None = None
+    section_name: str | None = None
     time_slot: str | None = None
     marked_by: int | None = None
     created_at: dt.datetime
