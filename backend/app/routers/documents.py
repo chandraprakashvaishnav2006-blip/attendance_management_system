@@ -28,30 +28,56 @@ def get_safe_filename(doc: PDFDocument) -> str:
     return safe_title
 
 
-def get_document_source(doc: PDFDocument) -> tuple[str | None, bytes | None, str]:
+def get_document_source(doc: PDFDocument, db: Session | None = None) -> tuple[str | None, bytes | None, str]:
     """
     Returns (disk_path_if_valid, content_bytes_if_db, mime_type)
+    Checks multiple possible disk directories and database fallback.
     """
-    mime_type = doc.mime_type or mimetypes.guess_type(doc.file_path)[0] or "application/pdf"
+    mime_type = doc.mime_type or mimetypes.guess_type(doc.file_path or "")[0] or "application/pdf"
     
-    # 1. Resolve disk path
-    clean_rel = doc.file_path.lstrip("/").replace("\\", "/")
-    # Remove leading 'uploads/' if present to avoid duplicate
+    clean_rel = (doc.file_path or "").lstrip("/").replace("\\", "/")
     if clean_rel.startswith("uploads/"):
         clean_rel = clean_rel[len("uploads/"):]
-    disk_path = os.path.join(settings.UPLOAD_DIR, clean_rel)
+    filename = os.path.basename(clean_rel)
 
-    if os.path.isfile(disk_path) and os.path.getsize(disk_path) > 0:
-        return disk_path, None, mime_type
+    # 1. Check multiple candidate disk locations
+    candidate_dirs = [
+        settings.UPLOAD_DIR,
+        os.path.join(settings.UPLOAD_DIR, "materials"),
+        os.path.join(os.getcwd(), "uploads"),
+        os.path.join(os.getcwd(), "uploads", "materials"),
+        os.path.join(os.getcwd(), "backend", "uploads"),
+        os.path.join(os.getcwd(), "backend", "uploads", "materials"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "materials"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "uploads"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "uploads", "materials"),
+    ]
+
+    for cdir in candidate_dirs:
+        for fname in [clean_rel, filename]:
+            p = os.path.normpath(os.path.join(cdir, fname))
+            if os.path.isfile(p) and os.path.getsize(p) > 0:
+                # If DB doesn't have file_data cached, load it into DB for cloud resilience
+                if (not doc.file_data or len(doc.file_data) == 0) and db:
+                    try:
+                        with open(p, "rb") as f:
+                            doc.file_data = f.read()
+                        doc.file_size = len(doc.file_data)
+                        db.commit()
+                    except Exception:
+                        pass
+                return p, None, mime_type
 
     # 2. Check if file_data is stored in database
     if doc.file_data and len(doc.file_data) > 0:
         # Cache to disk for high performance if possible
         try:
-            os.makedirs(os.path.dirname(disk_path), exist_ok=True)
-            with open(disk_path, "wb") as f:
+            target_path = os.path.join(settings.UPLOAD_DIR, clean_rel)
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            with open(target_path, "wb") as f:
                 f.write(doc.file_data)
-            return disk_path, None, mime_type
+            return target_path, None, mime_type
         except Exception:
             # If disk is read-only / ephemeral container, return bytes directly
             return None, doc.file_data, mime_type
@@ -69,7 +95,7 @@ def view_document(doc_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     safe_filename = get_safe_filename(doc)
-    disk_path, doc_bytes, mime_type = get_document_source(doc)
+    disk_path, doc_bytes, mime_type = get_document_source(doc, db)
 
     # Encode filename for RFC 5987 Content-Disposition
     ascii_filename = re.sub(r'[^\x20-\x7E]', '_', safe_filename)
@@ -116,7 +142,7 @@ def download_document(doc_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     safe_filename = get_safe_filename(doc)
-    disk_path, doc_bytes, mime_type = get_document_source(doc)
+    disk_path, doc_bytes, mime_type = get_document_source(doc, db)
 
     ascii_filename = re.sub(r'[^\x20-\x7E]', '_', safe_filename)
     encoded_filename = urllib.parse.quote(safe_filename)

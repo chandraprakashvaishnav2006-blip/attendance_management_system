@@ -44,41 +44,41 @@ export const PDFManagement = () => {
   const [downloadingDocId, setDownloadingDocId] = useState(null);
 
   const handleViewDocument = (doc) => {
-    const viewUrl = `${BACKEND_BASE}/api/v1/documents/${doc.id}/view`;
+    const viewUrl = `${API_BASE}/documents/${doc.id}/view`;
     window.open(viewUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownloadDocument = async (doc) => {
     try {
       setDownloadingDocId(doc.id);
-      const downloadUrl = `${BACKEND_BASE}/api/v1/documents/${doc.id}/download`;
-      const response = await fetch(downloadUrl);
-      if (!response.ok) {
-        throw new Error('Download failed');
-      }
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = blobUrl;
       let filename = doc.title || 'document';
       const ext = (doc.file_path || '').split('.').pop();
       if (ext && !filename.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) {
         filename = `${filename}.${ext}`;
       }
+
+      // Fetch file as blob via authenticated api client
+      const blobData = await api.get(`/documents/${doc.id}/download`, {
+        responseType: 'blob',
+      });
+
+      const blob = blobData instanceof Blob ? blobData : new Blob([blobData]);
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
       link.download = filename;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
 
       setDocuments((prev) =>
         prev.map((d) => (d.id === doc.id ? { ...d, download_count: (d.download_count || 0) + 1 } : d))
       );
       toast.success('Document downloaded');
-    } catch {
-      const directUrl = `${BACKEND_BASE}/api/v1/documents/${doc.id}/download`;
-      window.open(directUrl, '_blank');
+    } catch (err) {
+      toast.error(err.message || 'Failed to download document');
     } finally {
       setDownloadingDocId(null);
     }
