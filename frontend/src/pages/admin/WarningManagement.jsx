@@ -10,7 +10,8 @@ import {
   Mail,
   MessageSquare,
   Phone,
-  ExternalLink
+  ExternalLink,
+  Copy
 } from 'lucide-react';
 import api from '../../api/axios';
 import { Badge } from '../../components/common/Badge';
@@ -26,6 +27,7 @@ export const WarningManagement = () => {
   const [loading, setLoading] = useState(true);
 
   const [issueModalOpen, setIssueModalOpen] = useState(false);
+  const [openWhatsAppAfter, setOpenWhatsAppAfter] = useState(true);
   const [form, setForm] = useState({
     student_id: '',
     type: 'Low Attendance',
@@ -33,6 +35,29 @@ export const WarningManagement = () => {
     message: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
+
+  // Dedicated interactive WhatsApp Dispatch Modal state
+  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waData, setWaData] = useState({
+    recipientName: '',
+    phone: '',
+    text: '',
+  });
+
+  const normalizeWhatsAppPhone = (rawPhone) => {
+    if (!rawPhone) return '';
+    let digits = rawPhone.replace(/[^0-9]/g, '');
+    // If it's a standard 10-digit mobile number, prepend 91 (India)
+    if (digits.length === 10) {
+      return '91' + digits;
+    }
+    // If it has leading 0 and 11 digits, replace 0 with 91
+    if (digits.length === 11 && digits.startsWith('0')) {
+      return '91' + digits.slice(1);
+    }
+    return digits;
+  };
 
   const fetchWarningsAndAlerts = async () => {
     setLoading(true);
@@ -68,14 +93,51 @@ export const WarningManagement = () => {
     fetchWarningsAndAlerts();
   }, []);
 
-  const handleOpenWhatsApp = (phone, contactName, text) => {
-    if (!phone) {
-      toast.error(`No phone number registered for ${contactName || 'this contact'}`);
+  const handleOpenWhatsAppModal = (phone, contactName, text) => {
+    const clean = normalizeWhatsAppPhone(phone);
+    setWaData({
+      recipientName: contactName || 'Student Contact',
+      phone: clean,
+      text: text || '',
+    });
+    setWaModalOpen(true);
+  };
+
+  const handleLaunchWhatsApp = (mode = 'app') => {
+    let num = waData.phone.replace(/[^0-9]/g, '');
+    if (!num || num.length < 7) {
+      toast.error('Please enter a valid WhatsApp mobile number with country code (e.g. 919876543210)');
       return;
     }
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    if (num.length === 10) {
+      num = '91' + num;
+    }
+    const encoded = encodeURIComponent(waData.text);
+    const url =
+      mode === 'web'
+        ? `https://web.whatsapp.com/send?phone=${num}&text=${encoded}`
+        : `https://api.whatsapp.com/send?phone=${num}&text=${encoded}`;
+
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyWhatsAppText = () => {
+    navigator.clipboard.writeText(waData.text);
+    toast.success('Notice copied to clipboard!');
+  };
+
+  const handleTestEmail = async () => {
+    setTestingEmail(true);
+    try {
+      const res = await api.post('/admin/test-email');
+      if (res.success) {
+        toast.success(res.message, { duration: 6000 });
+      }
+    } catch (err) {
+      toast.error(err.message || 'SMTP Email Test Failed. Check Gmail App Password in .env', { duration: 7000 });
+    } finally {
+      setTestingEmail(false);
+    }
   };
 
   const handleIssueWarning = async (e) => {
@@ -87,10 +149,22 @@ export const WarningManagement = () => {
         student_id: Number(form.student_id),
       });
       if (res.success) {
-        toast.success('Warning issued! Dispatched via In-App Notification and Email.');
+        toast.success('Warning issued! Transmitted via In-App Alert and Email.');
         setIssueModalOpen(false);
+
+        const targetStudent = students.find((s) => String(s.id) === String(form.student_id));
+        const targetRoll = targetStudent?.roll_no || '';
+        const targetName = targetStudent?.name || 'Student';
+        const targetPhone = targetStudent?.phone || '';
+
+        const waNotice = `*Official Academic Notice - Campus Attendance Office*\n\nAttention: An official *${form.severity.toUpperCase()}* severity warning has been logged for *${targetName}* (Roll: ${targetRoll}).\n\n*Category:* ${form.type}\n*Notice:* ${form.message}\n\nPlease contact the administration immediately regarding this matter.`;
+
         setForm((prev) => ({ ...prev, message: '' }));
         fetchWarningsAndAlerts();
+
+        if (openWhatsAppAfter) {
+          handleOpenWhatsAppModal(targetPhone, targetName, waNotice);
+        }
       }
     } catch (err) {
       toast.error(err.message || 'Failed to issue warning');
@@ -101,15 +175,19 @@ export const WarningManagement = () => {
 
   const handleQuickSendLowAttendance = async (student) => {
     try {
+      const msg = `Official Notice: Your overall attendance is currently ${student.percentage}%, which is below the required 75% threshold. Please meet your class coordinator immediately.`;
       const res = await api.post('/admin/warnings', {
         student_id: student.id,
         type: 'Low Attendance',
         severity: 'high',
-        message: `Official Notice: Your overall attendance is currently ${student.percentage}%, which is below the required 75% threshold. Please meet your class coordinator immediately.`,
+        message: msg,
       });
       if (res.success) {
         toast.success(`Dispatched warning alert & email to ${student.name} and parent accounts!`);
         fetchWarningsAndAlerts();
+
+        const waText = `*Official Academic Notice - Campus Attendance Office*\n\nDear Parent/Guardian of ${student.name} (Roll No: ${student.roll_no}),\nThis is to notify you that your child's overall attendance is currently *${student.percentage}%*, which is below the mandatory 75% university requirement.\n\nPlease discuss this with your child and schedule a meeting with the class coordinator to avoid debarment from examinations.`;
+        handleOpenWhatsAppModal(student.parent_phone || student.phone, `${student.name} (Parent)`, waText);
       }
     } catch (err) {
       toast.error(err.message || 'Failed to send warning');
@@ -142,13 +220,25 @@ export const WarningManagement = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIssueModalOpen(true)}
-          className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Issue Warning
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleTestEmail}
+            disabled={testingEmail}
+            className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs disabled:opacity-50"
+            title="Sends a test verification email via configured Gmail SMTP"
+          >
+            <Mail className="w-3.5 h-3.5 text-slate-500" />
+            <span>{testingEmail ? 'Testing SMTP...' : 'Test Gmail'}</span>
+          </button>
+
+          <button
+            onClick={() => setIssueModalOpen(true)}
+            className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Issue Warning
+          </button>
+        </div>
       </div>
 
       {/* Auto-suggested Low Attendance Warnings Card */}
@@ -210,9 +300,9 @@ export const WarningManagement = () => {
                     <button
                       type="button"
                       onClick={() =>
-                        handleOpenWhatsApp(
+                        handleOpenWhatsAppModal(
                           s.parent_phone || s.phone,
-                          s.parent_name ? `${s.parent_name} (Parent)` : s.name,
+                          s.parent_name ? `${s.parent_name} (Parent of ${s.name})` : s.name,
                           s.parent_phone ? waTextParent : waTextStudent
                         )
                       }
@@ -337,7 +427,7 @@ export const WarningManagement = () => {
                           {parentPhone && (
                             <button
                               type="button"
-                              onClick={() => handleOpenWhatsApp(parentPhone, `${w.parent_name || 'Parent'}`, waText)}
+                              onClick={() => handleOpenWhatsAppModal(parentPhone, `${w.parent_name || 'Parent'} (${w.student_name})`, waText)}
                               className="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 text-[10px] font-medium transition-colors flex items-center gap-1"
                               title={`Send WhatsApp to Parent (${parentPhone})`}
                             >
@@ -348,7 +438,7 @@ export const WarningManagement = () => {
                           {studentPhone && (
                             <button
                               type="button"
-                              onClick={() => handleOpenWhatsApp(studentPhone, w.student_name, waText)}
+                              onClick={() => handleOpenWhatsAppModal(studentPhone, w.student_name, waText)}
                               className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-medium transition-colors flex items-center gap-1"
                               title={`Send WhatsApp to Student (${studentPhone})`}
                             >
@@ -450,6 +540,20 @@ export const WarningManagement = () => {
             />
           </div>
 
+          <div className="pt-1">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={openWhatsAppAfter}
+                onChange={(e) => setOpenWhatsAppAfter(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-700 text-slate-900 focus:ring-0"
+              />
+              <span className="text-xs text-slate-600 dark:text-slate-300">
+                Open WhatsApp Dispatch immediately after issuing
+              </span>
+            </label>
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
@@ -467,6 +571,86 @@ export const WarningManagement = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Interactive WhatsApp Dispatch Modal */}
+      <Modal
+        isOpen={waModalOpen}
+        onClose={() => setWaModalOpen(false)}
+        title="Send Warning Notice via WhatsApp"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300">
+            <p className="font-semibold flex items-center gap-1.5">
+              <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              Target Recipient: {waData.recipientName}
+            </p>
+            <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
+              You can verify or edit the recipient mobile number before launching WhatsApp.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+              WhatsApp Mobile Number (e.g. 919876543210) *
+            </label>
+            <div className="relative">
+              <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                value={waData.phone}
+                onChange={(e) => setWaData({ ...waData, phone: e.target.value })}
+                placeholder="919876543210"
+                className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+              />
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Note: 10-digit Indian numbers will automatically be prefixed with 91.
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                Formatted Warning Notice
+              </label>
+              <button
+                type="button"
+                onClick={handleCopyWhatsAppText}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+            </div>
+            <textarea
+              rows={5}
+              value={waData.text}
+              onChange={(e) => setWaData({ ...waData, text: e.target.value })}
+              className="w-full p-2.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => handleLaunchWhatsApp('web')}
+              className="w-full sm:flex-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Open WhatsApp Web</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLaunchWhatsApp('app')}
+              className="w-full sm:flex-1 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Open WhatsApp App</span>
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

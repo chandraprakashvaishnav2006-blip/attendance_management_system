@@ -1,4 +1,14 @@
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+_ROOT_DIR = _BACKEND_DIR.parent
+_ENV_FILE_PATHS = [
+    str(_BACKEND_DIR / ".env"),
+    str(_ROOT_DIR / ".env"),
+    ".env"
+]
 
 
 class Settings(BaseSettings):
@@ -29,7 +39,7 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILE_PATHS,
         env_file_encoding="utf-8",
         extra="ignore"
     )

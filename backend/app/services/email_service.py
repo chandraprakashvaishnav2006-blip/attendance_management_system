@@ -43,18 +43,85 @@ def _send_smtp_email_sync(to_emails: list[str], subject: str, html_body: str, te
         msg.attach(part_text)
         msg.attach(part_html)
 
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=12)
-        server.ehlo()
-        if settings.SMTP_PORT in (587, 25):
-            server.starttls()
+        clean_password = (settings.SMTP_PASSWORD or "").replace(" ", "").strip()
+        clean_user = (settings.SMTP_USER or "").strip()
+
+        if settings.SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=12)
             server.ehlo()
-        server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+        else:
+            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=12)
+            server.ehlo()
+            if settings.SMTP_PORT in (587, 25):
+                server.starttls()
+                server.ehlo()
+
+        server.login(clean_user, clean_password)
         server.sendmail(from_email, valid_recipients, msg.as_string())
         server.quit()
 
         logger.info(f"[EMAIL SERVICE] Successfully dispatched email to: {valid_recipients}")
     except Exception as exc:
         logger.error(f"[EMAIL SERVICE] Failed to send email via SMTP ({settings.SMTP_HOST}:{settings.SMTP_PORT}): {exc}")
+
+
+def test_smtp_connection(target_email: str) -> dict:
+    """
+    Synchronously tests the SMTP connection and sends a sample test email to verify credentials.
+    """
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+        return {
+            "success": False,
+            "message": "SMTP_USER or SMTP_PASSWORD is not configured in backend/.env"
+        }
+
+    clean_user = settings.SMTP_USER.strip()
+    clean_password = settings.SMTP_PASSWORD.replace(" ", "").strip()
+    from_email = settings.SMTP_FROM_EMAIL or clean_user
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Test Email - Campus Attendance Notification System"
+        msg["From"] = f"{settings.SMTP_FROM_NAME} <{from_email}>"
+        msg["To"] = target_email
+
+        html = f"""
+        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #0f172a; margin-top: 0;">SMTP Test Successful!</h2>
+          <p style="color: #334155;">Your Gmail connection (<strong>{clean_user}</strong>) is configured and working perfectly.</p>
+          <p style="color: #64748b; font-size: 12px;">Warnings and absence alerts are now live.</p>
+        </div>
+        """
+        msg.attach(MIMEText(html, "html", "utf-8"))
+
+        if settings.SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15)
+            server.ehlo()
+        else:
+            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15)
+            server.ehlo()
+            if settings.SMTP_PORT in (587, 25):
+                server.starttls()
+                server.ehlo()
+
+        server.login(clean_user, clean_password)
+        server.sendmail(from_email, [target_email], msg.as_string())
+        server.quit()
+
+        return {
+            "success": True,
+            "message": f"Test email sent successfully to {target_email} from {clean_user}!"
+        }
+    except smtplib.SMTPAuthenticationError as auth_err:
+        return {
+            "success": False,
+            "message": f"Gmail Authentication Failed (535): Please ensure you are using a 16-character Google App Password (not your normal password). Details: {auth_err}"
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "message": f"SMTP Connection Failed: {exc}"
+        }
 
 
 def send_email_async(to_emails: list[str], subject: str, html_body: str, text_body: str):

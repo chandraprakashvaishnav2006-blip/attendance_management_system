@@ -1900,3 +1900,17 @@ def update_warning_status(warning_id: int, data: WarningUpdate, db: Session = De
     w.status = data.status
     db.commit()
     return ApiResponse(success=True, message=f"Warning status updated to '{data.status}'")
+
+@router.post("/test-email", response_model=ApiResponse)
+def test_email_dispatch(
+    target_email: str | None = None,
+    current_admin: User = Depends(require_role("ADMIN"))
+):
+    from app.services.email_service import test_smtp_connection
+    recipient = target_email or settings.SMTP_USER or current_admin.email
+    if not recipient:
+        raise HTTPException(status_code=400, detail="No recipient email address specified.")
+    result = test_smtp_connection(recipient)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    return ApiResponse(success=True, message=result["message"])
