@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "Attendance Management Office"
     SMTP_FROM_EMAIL: str = ""
     ENABLE_EMAIL_ALERTS: bool = True
+    DEFAULT_WHATSAPP_PHONE: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -37,6 +37,7 @@ export const WarningManagement = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
+  const [defaultWhatsAppPhone, setDefaultWhatsAppPhone] = useState('');
 
   // Dedicated interactive WhatsApp Dispatch Modal state
   const [waModalOpen, setWaModalOpen] = useState(false);
@@ -46,6 +47,7 @@ export const WarningManagement = () => {
     text: '',
     studentPhone: '',
     parentPhone: '',
+    defaultPhone: '',
     studentName: '',
     parentName: '',
   });
@@ -76,6 +78,9 @@ export const WarningManagement = () => {
 
       if (warnRes.success) setWarnings(warnRes.data);
       if (dashRes.success && dashRes.data) {
+        if (dashRes.data.default_whatsapp_phone) {
+          setDefaultWhatsAppPhone(dashRes.data.default_whatsapp_phone);
+        }
         const sortedLow = [...(dashRes.data.low_attendance_students || [])].sort((a, b) =>
           a.name.localeCompare(b.name)
         );
@@ -122,20 +127,31 @@ export const WarningManagement = () => {
       waText = text || '';
     }
 
-    // Auto-select phone: prefer phone passed, then parentPhone, then studentPhone
-    const chosenRawPhone = phone || parentPhone || studentPhone || '';
-    const clean = normalizeWhatsAppPhone(chosenRawPhone);
+    // Auto-select phone: prefer explicit phone, then parentPhone, then studentPhone, then defaultWhatsAppPhone (.env)
     const cleanStudentPhone = normalizeWhatsAppPhone(studentPhone);
     const cleanParentPhone = normalizeWhatsAppPhone(parentPhone);
+    const cleanPassedPhone = normalizeWhatsAppPhone(phone);
+    const cleanDefaultPhone = normalizeWhatsAppPhone(defaultWhatsAppPhone);
 
-    const resolvedRecipient = recipientName || (clean && clean === cleanParentPhone ? (parentName ? `${parentName} (Parent)` : 'Parent') : (studentName || 'Student Contact'));
+    const chosenCleanPhone = cleanPassedPhone || cleanParentPhone || cleanStudentPhone || cleanDefaultPhone || '';
+
+    const resolvedRecipient =
+      recipientName ||
+      (chosenCleanPhone && chosenCleanPhone === cleanParentPhone
+        ? (parentName ? `${parentName} (Parent)` : 'Parent')
+        : chosenCleanPhone && chosenCleanPhone === cleanStudentPhone
+        ? (studentName ? `${studentName} (Student)` : 'Student')
+        : chosenCleanPhone && cleanDefaultPhone && chosenCleanPhone === cleanDefaultPhone
+        ? 'Default Recipient (.env)'
+        : (studentName || 'Student Contact'));
 
     setWaData({
       recipientName: resolvedRecipient,
-      phone: clean,
+      phone: chosenCleanPhone,
       text: waText,
       studentPhone: cleanStudentPhone,
       parentPhone: cleanParentPhone,
+      defaultPhone: cleanDefaultPhone,
       studentName: studentName,
       parentName: parentName,
     });
@@ -626,7 +642,11 @@ export const WarningManagement = () => {
                   </div>
                   {(currentStudent.parent_phone || currentStudent.phone) ? (
                     <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium pt-0.5">
-                      ✓ Mobile number available — will autofill WhatsApp dispatch
+                      ✓ Mobile number available — will autofill WhatsApp dispatch from student record
+                    </p>
+                  ) : defaultWhatsAppPhone ? (
+                    <p className="text-[10px] text-sky-600 dark:text-sky-400 font-medium pt-0.5">
+                      ℹ️ No student phone saved — will autofill default number ({defaultWhatsAppPhone}) from .env
                     </p>
                   ) : (
                     <p className="text-[10px] text-amber-600 dark:text-amber-400 pt-0.5">
@@ -743,13 +763,17 @@ export const WarningManagement = () => {
               </label>
               {waData.phone && (
                 <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded flex items-center gap-1">
-                  ✓ Autofilled from student info
+                  {waData.phone === waData.parentPhone || waData.phone === waData.studentPhone
+                    ? '✓ Autofilled from student info'
+                    : waData.phone === waData.defaultPhone
+                    ? '✓ Autofilled from .env default'
+                    : '✓ Number ready'}
                 </span>
               )}
             </div>
 
-            {/* Quick-select pills for Parent & Student */}
-            {(waData.parentPhone || waData.studentPhone) && (
+            {/* Quick-select pills for Parent, Student & Default .env */}
+            {(waData.parentPhone || waData.studentPhone || waData.defaultPhone) && (
               <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">Quick Select:</span>
                 {waData.parentPhone && (
@@ -792,12 +816,32 @@ export const WarningManagement = () => {
                     <span className="font-mono">{waData.studentPhone}</span>
                   </button>
                 )}
+                {waData.defaultPhone && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaData((prev) => ({
+                        ...prev,
+                        phone: prev.defaultPhone,
+                        recipientName: 'Default Recipient (.env)',
+                      }));
+                    }}
+                    className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                      waData.phone === waData.defaultPhone
+                        ? 'bg-sky-600 text-white border-sky-600 dark:bg-sky-500 dark:border-sky-500 font-semibold shadow-2xs'
+                        : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                    }`}
+                  >
+                    <span>Default (.env):</span>
+                    <span className="font-mono">{waData.defaultPhone}</span>
+                  </button>
+                )}
               </div>
             )}
 
-            {!waData.parentPhone && !waData.studentPhone && !waData.phone && (
+            {!waData.parentPhone && !waData.studentPhone && !waData.defaultPhone && !waData.phone && (
               <div className="mb-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-700 dark:text-amber-300">
-                Notice: No phone number was found in this student profile. Please enter the number manually below.
+                Notice: No contact number was found in student profile or .env settings. Please enter the number manually below.
               </div>
             )}
 

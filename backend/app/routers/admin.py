@@ -131,6 +131,7 @@ def get_admin_dashboard(db: Session = Depends(get_db)):
             "today_records_count": today_total,
             "low_attendance_count": len(low_attendance_students),
             "low_attendance_students": low_attendance_students[:10],
+            "default_whatsapp_phone": settings.DEFAULT_WHATSAPP_PHONE,
             "recent_notices": [NoticeOut.model_validate(n) for n in recent_notices],
             "recent_warnings": [
                 {
