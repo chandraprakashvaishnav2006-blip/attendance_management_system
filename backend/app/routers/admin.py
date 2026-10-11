@@ -1899,6 +1899,7 @@ def issue_warning(
     )
 
 @router.post("/warnings/bulk", response_model=ApiResponse[dict])
+@router.post("/warnings-bulk", response_model=ApiResponse[dict])
 def issue_bulk_warnings(
     data: BulkWarningCreate,
     current_admin: User = Depends(require_role("ADMIN")),
@@ -1956,7 +1957,7 @@ def issue_bulk_warnings(
         }
     )
 
-@router.put("/warnings/{warning_id}", response_model=ApiResponse)
+@router.put("/warnings/{warning_id:int}", response_model=ApiResponse)
 def update_warning_status(warning_id: int, data: WarningUpdate, db: Session = Depends(get_db)):
     w = db.query(Warning).filter(Warning.id == warning_id).first()
     if not w:

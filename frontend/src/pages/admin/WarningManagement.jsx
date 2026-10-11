@@ -21,7 +21,8 @@ import {
   AlertCircle,
   Megaphone,
   Sparkles,
-  Layers
+  X,
+  ChevronDown
 } from 'lucide-react';
 import api from '../../api/axios';
 import { Badge } from '../../components/common/Badge';
@@ -47,6 +48,9 @@ export const WarningManagement = () => {
   // Single Student Warning Modal state
   const [issueModalOpen, setIssueModalOpen] = useState(false);
   const [openWhatsAppAfter, setOpenWhatsAppAfter] = useState(true);
+  const [studentPickerSearch, setStudentPickerSearch] = useState('');
+  const [pickerDropdownOpen, setPickerDropdownOpen] = useState(false);
+
   const [form, setForm] = useState({
     student_id: '',
     target: 'both', // 'both' | 'student' | 'parent'
@@ -109,6 +113,8 @@ export const WarningManagement = () => {
       student_phone: normalizeWhatsAppPhone(s?.phone || ''),
       parent_phone: normalizeWhatsAppPhone(s?.parent_phone || ''),
     }));
+    setPickerDropdownOpen(false);
+    setStudentPickerSearch('');
   };
 
   const fetchWarningsAndAlerts = async () => {
@@ -134,9 +140,9 @@ export const WarningManagement = () => {
           const first = sortedStudents[0];
           setForm((prev) => ({
             ...prev,
-            student_id: String(first.id),
-            student_phone: normalizeWhatsAppPhone(first.phone || ''),
-            parent_phone: normalizeWhatsAppPhone(first.parent_phone || ''),
+            student_id: prev.student_id || String(first.id),
+            student_phone: prev.student_phone || normalizeWhatsAppPhone(first.phone || ''),
+            parent_phone: prev.parent_phone || normalizeWhatsAppPhone(first.parent_phone || ''),
           }));
         }
       }
@@ -150,6 +156,24 @@ export const WarningManagement = () => {
   useEffect(() => {
     fetchWarningsAndAlerts();
   }, []);
+
+  // Filtered students for searchable child & parent picker
+  const filteredPickerStudents = useMemo(() => {
+    if (!studentPickerSearch.trim()) return students;
+    const q = studentPickerSearch.toLowerCase().trim();
+    return students.filter(
+      (s) =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.roll_no || '').toLowerCase().includes(q) ||
+        (s.phone && String(s.phone).includes(q)) ||
+        (s.parent_name && s.parent_name.toLowerCase().includes(q)) ||
+        (s.parent_phone && String(s.parent_phone).includes(q))
+    );
+  }, [students, studentPickerSearch]);
+
+  const selectedStudentObj = useMemo(() => {
+    return students.find((s) => String(s.id) === String(form.student_id));
+  }, [students, form.student_id]);
 
   // Open WhatsApp Modal with support for BOTH student and parent
   const handleOpenWhatsAppModal = ({
@@ -202,7 +226,6 @@ export const WarningManagement = () => {
       launchedCount++;
     }
     if (waData.parentPhone) {
-      // Small timeout so browsers handle multiple window opens cleanly
       setTimeout(() => {
         launchWhatsAppLink(waData.parentPhone, waData.text, mode);
       }, 350);
@@ -282,7 +305,7 @@ export const WarningManagement = () => {
     }
   };
 
-  // ONE-CLICK: Send Message / Warning to ALL Students & Parents
+  // ONE-CLICK: Send Message / Warning to ALL Students & Parents with fallback
   const handleBroadcastAll = async (e) => {
     e.preventDefault();
     if (!broadcastForm.message.trim()) {
@@ -291,12 +314,23 @@ export const WarningManagement = () => {
     }
     setBroadcasting(true);
     try {
-      const res = await api.post('/admin/warnings/bulk', {
+      const payload = {
         student_ids: null, // targets ALL active students!
         type: broadcastForm.type,
         severity: broadcastForm.severity,
         message: broadcastForm.message,
-      });
+      };
+
+      let res;
+      try {
+        res = await api.post('/admin/warnings/bulk', payload);
+      } catch (err) {
+        if (err?.status === 405 || err?.message?.includes('Method Not Allowed') || err?.response?.status === 405) {
+          res = await api.post('/admin/warnings-bulk', payload);
+        } else {
+          throw err;
+        }
+      }
 
       if (res.success) {
         toast.success(
@@ -314,7 +348,7 @@ export const WarningManagement = () => {
     }
   };
 
-  // ONE-CLICK: Send Warning & Email to ALL Defaulters (<75%)
+  // ONE-CLICK: Send Warning & Email to ALL Defaulters (<75%) with fallback
   const handleSendAllDefaulters = async () => {
     if (lowAttendanceStudents.length === 0) {
       toast.info('No attendance defaulters found');
@@ -328,12 +362,23 @@ export const WarningManagement = () => {
 
     setBulkDefaultersSending(true);
     try {
-      const res = await api.post('/admin/warnings/bulk', {
+      const payload = {
         student_ids: lowAttendanceStudents.map((s) => s.id),
         type: 'Low Attendance',
         severity: 'high',
         message: 'Official Notice: Your overall attendance is currently below the mandatory 75% threshold. Please meet your class coordinator immediately to regularize attendance.',
-      });
+      };
+
+      let res;
+      try {
+        res = await api.post('/admin/warnings/bulk', payload);
+      } catch (err) {
+        if (err?.status === 405 || err?.message?.includes('Method Not Allowed') || err?.response?.status === 405) {
+          res = await api.post('/admin/warnings-bulk', payload);
+        } else {
+          throw err;
+        }
+      }
 
       if (res.success) {
         toast.success(
@@ -392,22 +437,31 @@ export const WarningManagement = () => {
     }
   };
 
-  // Filtered warnings list
+  // Filtered warnings list - searchable by child AND parent names/phones
   const filteredWarnings = useMemo(() => {
     return warnings.filter((w) => {
+      const matchingStudent = students.find((s) => s.id === w.student_id);
+      const parentName = w.parent_name || matchingStudent?.parent_name || '';
+      const parentPhone = w.parent_phone || matchingStudent?.parent_phone || '';
+      const studentPhone = w.student_phone || matchingStudent?.phone || '';
+
+      const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !searchQuery ||
-        (w.student_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (w.student_roll_no || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (w.message || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (w.type || '').toLowerCase().includes(searchQuery.toLowerCase());
+        (w.student_name || '').toLowerCase().includes(q) ||
+        (w.student_roll_no || '').toLowerCase().includes(q) ||
+        (w.message || '').toLowerCase().includes(q) ||
+        (w.type || '').toLowerCase().includes(q) ||
+        studentPhone.includes(q) ||
+        parentName.toLowerCase().includes(q) ||
+        parentPhone.includes(q);
 
       const matchesStatus = statusFilter === 'all' || w.status === statusFilter;
       const matchesSeverity = severityFilter === 'all' || w.severity === severityFilter;
 
       return matchesSearch && matchesStatus && matchesSeverity;
     });
-  }, [warnings, searchQuery, statusFilter, severityFilter]);
+  }, [warnings, students, searchQuery, statusFilter, severityFilter]);
 
   // High severity count
   const highSeverityCount = useMemo(() => {
@@ -456,7 +510,11 @@ export const WarningManagement = () => {
 
           {/* ISSUE SINGLE WARNING BUTTON */}
           <button
-            onClick={() => setIssueModalOpen(true)}
+            onClick={() => {
+              setPickerDropdownOpen(false);
+              setStudentPickerSearch('');
+              setIssueModalOpen(true);
+            }}
             className="btn-press px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -558,14 +616,14 @@ export const WarningManagement = () => {
           </button>
         </div>
 
-        {/* Filter & Search Bar */}
+        {/* Filter & Search Bar (Matches Child & Parent names/phones) */}
         {activeTab === 'warnings' && (
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-56">
+            <div className="relative flex-1 sm:w-64">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search warnings..."
+                placeholder="Search child or parent name/phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-2.5 py-1 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
@@ -611,7 +669,7 @@ export const WarningManagement = () => {
                 title={searchQuery || statusFilter !== 'all' ? "No matching warnings" : "No warnings issued"}
                 description={
                   searchQuery || statusFilter !== 'all'
-                    ? "Try adjusting your search criteria or status filter."
+                    ? "Try adjusting your search query (child or parent name/phone) or status filter."
                     : "All students are currently in good standing without active disciplinary warnings."
                 }
               />
@@ -623,7 +681,7 @@ export const WarningManagement = () => {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50/70 dark:bg-slate-800/50 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80 dark:border-slate-800/80">
                     <tr>
-                      <th className="py-2.5 px-3.5">Student</th>
+                      <th className="py-2.5 px-3.5">Student & Parent</th>
                       <th className="py-2.5 px-3">Type</th>
                       <th className="py-2.5 px-3">Severity</th>
                       <th className="py-2.5 px-3">Message</th>
@@ -647,7 +705,9 @@ export const WarningManagement = () => {
                         >
                           <td className="py-2.5 px-3.5">
                             <p className="font-semibold text-slate-900 dark:text-white">{w.student_name}</p>
-                            <p className="text-[10px] font-mono text-slate-400">{w.student_roll_no}</p>
+                            <p className="text-[10px] font-mono text-slate-400">
+                              {w.student_roll_no} • 👪 {parentName}
+                            </p>
                           </td>
 
                           <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300">
@@ -783,6 +843,9 @@ export const WarningManagement = () => {
                           </p>
                           <p className="text-[10px] font-mono text-slate-400 mt-0.5">
                             {w.student_roll_no} • {w.type}
+                          </p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            👪 Parent: {parentName} {parentPhone ? `(${parentPhone})` : ''}
                           </p>
                         </div>
 
@@ -1012,31 +1075,112 @@ export const WarningManagement = () => {
         </div>
       )}
 
-      {/* MODAL 1: ISSUE SINGLE STUDENT WARNING (With Child & Parent options) */}
+      {/* MODAL 1: ISSUE SINGLE STUDENT WARNING (With Searchable Child & Parent Picker) */}
       <Modal
         isOpen={issueModalOpen}
-        onClose={() => setIssueModalOpen(false)}
+        onClose={() => {
+          setIssueModalOpen(false);
+          setPickerDropdownOpen(false);
+        }}
         title="Issue Student Warning"
         maxWidth="max-w-md"
       >
         <form onSubmit={handleIssueWarning} className="space-y-3.5">
-          {/* Target Student */}
+          {/* SEARCHABLE CHILD & PARENT SELECTOR */}
           <div>
             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Select Student *
+              Select Child & Parent *
             </label>
-            <select
-              required
-              value={form.student_id}
-              onChange={(e) => handleStudentSelect(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.roll_no})
-                </option>
-              ))}
-            </select>
+
+            {/* Selected Student & Parent Summary Card */}
+            {selectedStudentObj ? (
+              <div className="p-2.5 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 flex items-center justify-between gap-2 mb-1.5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      👤 {selectedStudentObj.name}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500 bg-white dark:bg-slate-750 px-1.5 py-0.2 rounded border border-slate-200 dark:border-slate-700">
+                      {selectedStudentObj.roll_no}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 truncate">
+                    👪 Parent: {selectedStudentObj.parent_name || 'Parent'}{' '}
+                    {selectedStudentObj.parent_phone ? `(${selectedStudentObj.parent_phone})` : ''}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setPickerDropdownOpen(!pickerDropdownOpen)}
+                  className="btn-press px-2.5 py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 transition-colors shrink-0 flex items-center gap-1"
+                >
+                  <span>Change</span>
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                </button>
+              </div>
+            ) : null}
+
+            {/* Live Autocomplete Search Input */}
+            {(!selectedStudentObj || pickerDropdownOpen) && (
+              <div className="space-y-1.5 animate-in fade-in duration-150">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={studentPickerSearch}
+                    onChange={(e) => setStudentPickerSearch(e.target.value)}
+                    placeholder="Search child name, roll no, or parent name / phone..."
+                    className="w-full pl-9 pr-8 py-1.5 text-xs rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    autoFocus
+                  />
+                  {studentPickerSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setStudentPickerSearch('')}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown Options List */}
+                <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md divide-y divide-slate-100 dark:divide-slate-750">
+                  {filteredPickerStudents.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-slate-400">
+                      No matching student or parent found for "{studentPickerSearch}"
+                    </div>
+                  ) : (
+                    filteredPickerStudents.map((s) => (
+                      <div
+                        key={s.id}
+                        onClick={() => handleStudentSelect(s.id)}
+                        className={`p-2 sm:p-2.5 hover:bg-indigo-50/60 dark:hover:bg-slate-700/60 cursor-pointer transition-colors text-xs flex items-center justify-between gap-2 ${
+                          String(form.student_id) === String(s.id)
+                            ? 'bg-indigo-50 dark:bg-indigo-950/40 font-semibold'
+                            : ''
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate">
+                            {s.name} <span className="text-[10px] font-mono text-slate-400">({s.roll_no})</span>
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                            👪 Parent: {s.parent_name || 'Parent'}{' '}
+                            {s.parent_phone ? `• 📞 ${s.parent_phone}` : ''}
+                          </p>
+                        </div>
+
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 shrink-0">
+                          Select
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* TARGET RECIPIENT SELECTOR (Both, Child, Parent) */}
@@ -1206,7 +1350,10 @@ export const WarningManagement = () => {
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={() => setIssueModalOpen(false)}
+              onClick={() => {
+                setIssueModalOpen(false);
+                setPickerDropdownOpen(false);
+              }}
               className="btn-press px-3 py-1.5 rounded-lg border border-slate-200/80 dark:border-slate-700/80 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Cancel
