@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.models.communication import Notification, Warning
 from app.models.student import Student
+from app.services.email_service import send_warning_email, send_absence_email
 
 
 def create_notification(
@@ -36,8 +37,9 @@ def notify_attendance_event(
     if not student:
         return
 
-    # If student is absent, notify parents
+    # If student is absent, notify parents via in-app and email
     if status.lower() == "absent":
+        parent_emails = []
         for parent in student.parents:
             create_notification(
                 db=db,
@@ -47,13 +49,27 @@ def notify_attendance_event(
                 notification_type="attendance_alert",
                 ref_id=student.id
             )
+            if parent.user and parent.user.email:
+                parent_emails.append(parent.user.email)
+
+        # Send absence email to parents
+        if parent_emails:
+            send_absence_email(
+                student_name=student.name,
+                student_roll_no=student.roll_no,
+                subject_name=subject_name,
+                date_str=date_str,
+                recipient_emails=parent_emails,
+            )
 
 def notify_warning_issued(db: Session, warning: Warning):
     student = db.query(Student).filter(Student.id == warning.student_id).first()
     if not student:
         return
 
-    # Notify student
+    recipient_emails = []
+
+    # Notify student (in-app + email)
     create_notification(
         db=db,
         recipient_user_id=student.user_id,
@@ -62,8 +78,10 @@ def notify_warning_issued(db: Session, warning: Warning):
         notification_type="warning",
         ref_id=warning.id
     )
+    if student.user and student.user.email:
+        recipient_emails.append(student.user.email)
 
-    # Notify linked parents
+    # Notify linked parents (in-app + email)
     for parent in student.parents:
         create_notification(
             db=db,
@@ -72,4 +90,17 @@ def notify_warning_issued(db: Session, warning: Warning):
             message=f"An official warning has been issued for {student.name}: {warning.message}",
             notification_type="warning",
             ref_id=warning.id
+        )
+        if parent.user and parent.user.email:
+            recipient_emails.append(parent.user.email)
+
+    # Dispatch warning email in background
+    if recipient_emails:
+        send_warning_email(
+            student_name=student.name,
+            student_roll_no=student.roll_no,
+            warning_type=warning.type,
+            severity=warning.severity,
+            message=warning.message,
+            recipient_emails=list(set(recipient_emails)),
         )

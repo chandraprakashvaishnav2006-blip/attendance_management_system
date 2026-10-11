@@ -101,12 +101,18 @@ def get_admin_dashboard(db: Session = Depends(get_db)):
             p_cnt = sum(1 for a in s_att if a.status.lower() in ("present", "late"))
             pct = round((p_cnt / len(s_att) * 100), 1)
             if pct < settings.MIN_ATTENDANCE_THRESHOLD:
+                p = s.parents[0] if s.parents else None
                 low_attendance_students.append({
                     "id": s.id,
                     "name": s.name,
                     "roll_no": s.roll_no,
                     "class_name": s.class_group.name if s.class_group else "-",
                     "percentage": pct,
+                    "phone": s.phone,
+                    "email": s.user.email if s.user else None,
+                    "parent_name": p.name if p else None,
+                    "parent_phone": p.phone if p else None,
+                    "parent_email": p.user.email if (p and p.user) else None,
                 })
 
     low_attendance_students.sort(key=lambda s: s["name"].lower())
@@ -1813,20 +1819,29 @@ def admin_view_document(doc_id: int, db: Session = Depends(get_db)):
 @router.get("/warnings", response_model=ApiResponse[list[WarningOut]])
 def list_admin_warnings(db: Session = Depends(get_db)):
     warnings = db.query(Warning).order_by(Warning.created_at.desc()).all()
-    results = [
-        WarningOut(
-            id=w.id,
-            student_id=w.student_id,
-            student_name=w.student.name if w.student else None,
-            student_roll_no=w.student.roll_no if w.student else None,
-            type=w.type,
-            severity=w.severity,
-            message=w.message,
-            status=w.status,
-            issued_by=w.issued_by,
-            created_at=w.created_at
-        ) for w in warnings
-    ]
+    results = []
+    for w in warnings:
+        s = w.student
+        p = s.parents[0] if (s and s.parents) else None
+        results.append(
+            WarningOut(
+                id=w.id,
+                student_id=w.student_id,
+                student_name=s.name if s else None,
+                student_roll_no=s.roll_no if s else None,
+                student_phone=s.phone if s else None,
+                student_email=s.user.email if (s and s.user) else None,
+                parent_name=p.name if p else None,
+                parent_phone=p.phone if p else None,
+                parent_email=p.user.email if (p and p.user) else None,
+                type=w.type,
+                severity=w.severity,
+                message=w.message,
+                status=w.status,
+                issued_by=w.issued_by,
+                created_at=w.created_at
+            )
+        )
     return ApiResponse(success=True, data=results)
 
 @router.post("/warnings", response_model=ApiResponse[WarningOut])
@@ -1851,9 +1866,10 @@ def issue_warning(
     db.commit()
     db.refresh(new_warning)
 
-    # Dispatches notifications to student and linked parents
+    # Dispatches notifications and emails to student and linked parents
     notify_warning_issued(db, new_warning)
 
+    p = student.parents[0] if student.parents else None
     return ApiResponse(
         success=True,
         message="Warning issued and notification dispatched.",
@@ -1862,6 +1878,11 @@ def issue_warning(
             student_id=new_warning.student_id,
             student_name=student.name,
             student_roll_no=student.roll_no,
+            student_phone=student.phone,
+            student_email=student.user.email if student.user else None,
+            parent_name=p.name if p else None,
+            parent_phone=p.phone if p else None,
+            parent_email=p.user.email if (p and p.user) else None,
             type=new_warning.type,
             severity=new_warning.severity,
             message=new_warning.message,

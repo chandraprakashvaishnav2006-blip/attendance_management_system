@@ -65,6 +65,11 @@ class WarningOut(BaseModel):
     student_id: int
     student_name: str | None = None
     student_roll_no: str | None = None
+    student_phone: str | None = None
+    student_email: str | None = None
+    parent_name: str | None = None
+    parent_phone: str | None = None
+    parent_email: str | None = None
     type: str
     severity: str
     message: str
