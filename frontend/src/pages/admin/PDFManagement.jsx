@@ -45,12 +45,35 @@ export const PDFManagement = () => {
 
   const handleViewDocument = async (doc) => {
     try {
-      let blobData;
+      let blobData = null;
+      // 1. Primary document stream
       try {
         blobData = await api.get(`/documents/${doc.id}/view`, { responseType: 'blob' });
       } catch {
-        blobData = await api.get(`/admin/documents/${doc.id}/view`, { responseType: 'blob' });
+        // 2. Admin document stream
+        try {
+          blobData = await api.get(`/admin/documents/${doc.id}/view`, { responseType: 'blob' });
+        } catch {
+          // 3. Fallback to direct static path (/uploads/...)
+          if (doc.file_path) {
+            try {
+              const staticUrl = getFileUrl(doc.file_path);
+              const res = await fetch(staticUrl);
+              if (res.ok) {
+                blobData = await res.blob();
+              }
+            } catch {
+              // Static fetch error
+            }
+          }
+        }
       }
+
+      if (!blobData) {
+        toast.error('This file is no longer available on the server. Please delete and re-upload it.');
+        return;
+      }
+
       const blob = blobData instanceof Blob ? blobData : new Blob([blobData], { type: doc.mime_type || 'application/pdf' });
       const blobUrl = window.URL.createObjectURL(blob);
       window.open(blobUrl, '_blank', 'noopener,noreferrer');
@@ -69,16 +92,38 @@ export const PDFManagement = () => {
         filename = `${filename}.${ext}`;
       }
 
-      // Fetch file as blob via authenticated api client with endpoint fallback
-      let blobData;
+      // Fetch file as blob with multi-level resilient fallback
+      let blobData = null;
+      // 1. Primary document download
       try {
         blobData = await api.get(`/documents/${doc.id}/download`, {
           responseType: 'blob',
         });
       } catch {
-        blobData = await api.get(`/admin/documents/${doc.id}/download`, {
-          responseType: 'blob',
-        });
+        // 2. Admin document download
+        try {
+          blobData = await api.get(`/admin/documents/${doc.id}/download`, {
+            responseType: 'blob',
+          });
+        } catch {
+          // 3. Fallback to direct static path (/uploads/...)
+          if (doc.file_path) {
+            try {
+              const staticUrl = getFileUrl(doc.file_path);
+              const res = await fetch(staticUrl);
+              if (res.ok) {
+                blobData = await res.blob();
+              }
+            } catch {
+              // Static fetch error
+            }
+          }
+        }
+      }
+
+      if (!blobData) {
+        toast.error('This file is no longer available on the server. Please delete and re-upload it.');
+        return;
       }
 
       const blob = blobData instanceof Blob ? blobData : new Blob([blobData]);

@@ -1572,6 +1572,23 @@ def create_admin_notice(
     current_admin: User = Depends(require_role("ADMIN")),
     db: Session = Depends(get_db)
 ):
+    attachment_data = None
+    if data.attachment_path:
+        clean_rel = data.attachment_path.lstrip("/").replace("\\", "/").removeprefix("uploads/")
+        fname = os.path.basename(clean_rel)
+        for dirpath in [settings.UPLOAD_DIR, os.path.join(settings.UPLOAD_DIR, "announcements")]:
+            for candidate in [clean_rel, fname]:
+                target = os.path.normpath(os.path.join(dirpath, candidate))
+                if os.path.isfile(target) and os.path.getsize(target) > 0:
+                    try:
+                        with open(target, "rb") as f:
+                            attachment_data = f.read()
+                        break
+                    except Exception:
+                        pass
+            if attachment_data:
+                break
+
     notice = Notice(
         title=data.title,
         description=data.description,
@@ -1579,6 +1596,7 @@ def create_admin_notice(
         target_audience=data.target_audience,
         class_id=data.class_id,
         attachment_path=data.attachment_path,
+        attachment_data=attachment_data,
         publish_date=data.publish_date,
         expiry_date=data.expiry_date,
         created_by=current_admin.id

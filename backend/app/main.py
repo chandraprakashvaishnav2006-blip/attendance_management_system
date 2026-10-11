@@ -263,6 +263,35 @@ def startup_event():
                 run_seed()
             except Exception as seed_err:
                 logger.error(f"[Startup] Could not run initial seed: {seed_err}")
+
+        # 3. Auto-backfill document file_data into database if physical files exist on disk
+        try:
+            empty_docs = db.query(PDFDocument).filter(
+                (PDFDocument.file_data == None) | (PDFDocument.file_data == b'')
+            ).all()
+            for doc in empty_docs:
+                clean_rel = (doc.file_path or "").lstrip("/").replace("\\", "/").removeprefix("uploads/")
+                fname = os.path.basename(clean_rel)
+                for dirpath in [
+                    settings.UPLOAD_DIR,
+                    os.path.join(settings.UPLOAD_DIR, "materials"),
+                    os.path.join(os.getcwd(), "uploads", "materials")
+                ]:
+                    for candidate in [clean_rel, fname]:
+                        target = os.path.normpath(os.path.join(dirpath, candidate))
+                        if os.path.isfile(target) and os.path.getsize(target) > 0:
+                            try:
+                                with open(target, "rb") as f:
+                                    doc.file_data = f.read()
+                                doc.file_size = len(doc.file_data)
+                                db.commit()
+                                break
+                            except Exception:
+                                pass
+                    if doc.file_data:
+                        break
+        except Exception as bf_err:
+            logger.warning(f"[Startup] Could not auto-backfill document file data: {bf_err}")
     except Exception as e:
         logger.error(f"[Startup] Startup error: {e}")
     finally:
