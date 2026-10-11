@@ -137,13 +137,18 @@ export const WarningManagement = () => {
         const sortedStudents = (studRes.data.items || []).sort((a, b) => a.name.localeCompare(b.name));
         setStudents(sortedStudents);
         if (sortedStudents.length > 0) {
-          const first = sortedStudents[0];
-          setForm((prev) => ({
-            ...prev,
-            student_id: prev.student_id || String(first.id),
-            student_phone: prev.student_phone || normalizeWhatsAppPhone(first.phone || ''),
-            parent_phone: prev.parent_phone || normalizeWhatsAppPhone(first.parent_phone || ''),
-          }));
+          setForm((prev) => {
+            const currentStudent = prev.student_id
+              ? sortedStudents.find((s) => String(s.id) === String(prev.student_id))
+              : sortedStudents[0];
+            const sToUse = currentStudent || sortedStudents[0];
+            return {
+              ...prev,
+              student_id: String(sToUse.id),
+              student_phone: normalizeWhatsAppPhone(sToUse.phone || ''),
+              parent_phone: normalizeWhatsAppPhone(sToUse.parent_phone || ''),
+            };
+          });
         }
       }
     } catch {
@@ -1249,6 +1254,22 @@ export const WarningManagement = () => {
                     className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
+                {selectedStudentObj?.phone && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-[10px] text-slate-400">From DB:</span>
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, student_phone: normalizeWhatsAppPhone(selectedStudentObj.phone) }))}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer btn-press ${
+                        form.student_phone === normalizeWhatsAppPhone(selectedStudentObj.phone)
+                          ? 'bg-emerald-600 text-white border-emerald-600 font-semibold'
+                          : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                      }`}
+                    >
+                      👤 {normalizeWhatsAppPhone(selectedStudentObj.phone)}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1278,6 +1299,35 @@ export const WarningManagement = () => {
                     className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
+                {selectedStudentObj?.parent_phone ? (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    <span className="text-[10px] text-slate-400">From DB:</span>
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, parent_phone: normalizeWhatsAppPhone(selectedStudentObj.parent_phone) }))}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer btn-press ${
+                        form.parent_phone === normalizeWhatsAppPhone(selectedStudentObj.parent_phone)
+                          ? 'bg-emerald-600 text-white border-emerald-600 font-semibold'
+                          : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                      }`}
+                    >
+                      👪 {normalizeWhatsAppPhone(selectedStudentObj.parent_phone)} ({selectedStudentObj.parent_name || 'Parent'})
+                    </button>
+                    {form.parent_phone && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, parent_phone: '' }))}
+                        className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    No parent registered for this student in DB. You can enter manually above.
+                  </p>
+                )}
               </div>
             )}
           </div>
