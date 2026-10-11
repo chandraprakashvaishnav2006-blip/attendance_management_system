@@ -135,20 +135,20 @@ export const AdminDashboard = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => navigate('/admin/attendance')}
-            className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-semibold text-xs flex items-center gap-2 transition-colors shadow-2xs"
+            className="flex-1 sm:flex-none justify-center px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-semibold text-xs flex items-center gap-2 transition-colors shadow-2xs"
           >
             <CalendarCheck className="w-3.5 h-3.5" />
-            Mark Attendance
+            <span>Mark Attendance</span>
           </button>
           <button
             onClick={() => navigate('/admin/students')}
-            className="px-3.5 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-2 transition-colors"
+            className="flex-1 sm:flex-none justify-center px-3.5 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-2 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Student
+            <span>Add Student</span>
           </button>
         </div>
       </div>

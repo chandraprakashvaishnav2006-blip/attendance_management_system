@@ -64,7 +64,7 @@ export const ParentDashboard = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Top Welcome Card with Child Switcher if multiple */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-300">
             <Baby className="w-3.5 h-3.5 text-slate-500" />
@@ -80,7 +80,7 @@ export const ParentDashboard = () => {
 
         {/* Multi-child dropdown switcher */}
         {user?.students?.length > 1 && (
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800/60 p-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 max-w-full">
             <span className="text-xs font-medium px-2 text-slate-500 dark:text-slate-400">Child:</span>
             {user.students.map((child) => (
               <button

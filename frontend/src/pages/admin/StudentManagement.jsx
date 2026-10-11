@@ -307,34 +307,34 @@ export const StudentManagement = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={handleExportCSV}
-            className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs"
+            className="px-3 py-2 sm:py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center justify-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            Export CSV
+            <span>Export CSV</span>
           </button>
           <button
             onClick={() => setImportModalOpen(true)}
-            className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs"
+            className="px-3 py-2 sm:py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center justify-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs"
           >
             <Upload className="w-3.5 h-3.5 text-slate-500" />
-            Import CSV
+            <span>Import CSV</span>
           </button>
           <button
             onClick={handleOpenAdd}
-            className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+            className="col-span-2 sm:col-span-1 px-3 py-2 sm:py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Student
+            <span>Add Student</span>
           </button>
         </div>
       </div>
 
       {/* Filters & Search Toolbar */}
-      <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-        <div className="relative flex-1 min-w-[220px]">
+      <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-2xs">
+        <div className="relative flex-1 min-w-0">
           <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
@@ -348,14 +348,14 @@ export const StudentManagement = () => {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
           <select
             value={classFilter}
             onChange={(e) => {
               setClassFilter(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none"
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none truncate"
           >
             <option value="">All Classes</option>
             {classes.map((c) => (
@@ -371,7 +371,7 @@ export const StudentManagement = () => {
               setBranchFilter(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none"
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none truncate"
           >
             <option value="">All Branches</option>
             {branches.map((b) => (
@@ -387,14 +387,14 @@ export const StudentManagement = () => {
               setSectionFilter(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none"
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none truncate"
           >
             <option value="">All Sections</option>
             {sections
               .filter((s) => !classFilter || String(s.class_id) === String(classFilter))
               .map((s) => (
                 <option key={s.id} value={s.id}>
-                  Section {s.name} ({s.branch_code || 'General'})
+                  Sec {s.name} ({s.branch_code || 'General'})
                 </option>
               ))}
           </select>
@@ -405,7 +405,7 @@ export const StudentManagement = () => {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none"
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none truncate"
           >
             <option value="">All Statuses</option>
             <option value="active">Active</option>
@@ -427,7 +427,7 @@ export const StudentManagement = () => {
             description="Try clearing search filters or click 'Add Student' to register a new student."
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto touch-scroll responsive-table-container">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50/70 dark:bg-slate-800/40 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80 dark:border-slate-800/80">
                 <tr>

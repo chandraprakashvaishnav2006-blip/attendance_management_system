@@ -504,7 +504,7 @@ export const MarksManagement = () => {
         </div>
 
         {/* Exam Status & Save Button */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
           {currentExam && (
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-500">Publication Status:</span>
@@ -534,7 +534,7 @@ export const MarksManagement = () => {
             type="button"
             disabled={saving || students.length === 0}
             onClick={handleSaveMarks}
-            className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50"
+            className="w-full sm:w-auto justify-center px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             {saving ? 'Saving...' : 'Save Marks Grid'}
@@ -555,7 +555,7 @@ export const MarksManagement = () => {
             description="Select another exam or add students to the class."
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto touch-scroll responsive-table-container">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
                 <tr>

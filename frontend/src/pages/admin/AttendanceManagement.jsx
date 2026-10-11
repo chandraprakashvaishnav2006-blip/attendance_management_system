@@ -381,7 +381,7 @@ export const AttendanceManagement = () => {
 
         <button
           onClick={handleExportAttendance}
-          className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs"
+          className="w-full sm:w-auto justify-center px-3 py-2 sm:py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs"
         >
           <Download className="w-3.5 h-3.5 text-slate-500" />
           Export Attendance Report (CSV)
@@ -552,24 +552,24 @@ export const AttendanceManagement = () => {
         </div>
 
         {/* Action Shortcuts & Save */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-slate-500">Quick Shortcuts:</span>
             <button
               type="button"
               onClick={() => handleMarkAll('Present')}
-              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-medium border border-emerald-200/80 dark:border-emerald-800/80 transition-colors"
+              className="flex-1 sm:flex-none px-2.5 py-1.5 sm:py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-medium border border-emerald-200/80 dark:border-emerald-800/80 transition-colors text-center"
             >
               Mark All Present
             </button>
             <button
               type="button"
               onClick={() => handleMarkAll('Absent')}
-              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-medium border border-rose-200/80 dark:border-rose-800/80 transition-colors"
+              className="flex-1 sm:flex-none px-2.5 py-1.5 sm:py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-medium border border-rose-200/80 dark:border-rose-800/80 transition-colors text-center"
             >
               Mark All Absent
             </button>
-            <span className="text-xs text-slate-400 ml-2 hidden sm:inline">
+            <span className="text-xs text-slate-400 ml-2 hidden lg:inline">
               ({students.length} student{students.length === 1 ? '' : 's'} in sheet)
             </span>
           </div>
@@ -578,7 +578,7 @@ export const AttendanceManagement = () => {
             type="button"
             disabled={saving || students.length === 0}
             onClick={handleSaveAttendance}
-            className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
+            className="w-full sm:w-auto justify-center px-4 py-2 sm:py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5" />
             {saving ? 'Saving...' : 'Save & Broadcast'}
@@ -603,7 +603,7 @@ export const AttendanceManagement = () => {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto touch-scroll responsive-table-container">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
                 <tr>
@@ -771,11 +771,18 @@ export const AttendanceManagement = () => {
 
       {/* Quick Add / Edit Subject Modal */}
       {isSubjectModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative">
+        <div
+          onClick={() => setIsSubjectModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative max-h-[94vh] overflow-y-auto touch-scroll"
+          >
             <button
               onClick={() => setIsSubjectModalOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+              className="absolute top-3.5 sm:top-4 right-3.5 sm:right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>

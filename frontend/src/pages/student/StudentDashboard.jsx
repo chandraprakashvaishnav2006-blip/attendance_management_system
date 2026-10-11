@@ -70,10 +70,10 @@ export const StudentDashboard = () => {
 
         <button
           onClick={() => navigate('/student/analytics')}
-          className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-semibold text-xs flex items-center gap-2 transition-colors shadow-2xs self-start sm:self-auto"
+          className="w-full sm:w-auto justify-center px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-semibold text-xs flex items-center gap-2 transition-colors shadow-2xs"
         >
           <LineChart className="w-3.5 h-3.5" />
-          Analytics
+          <span>Analytics</span>
         </button>
       </div>
 

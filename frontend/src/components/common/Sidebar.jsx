@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -20,6 +20,14 @@ import { useAuth } from '../../context/AuthContext';
 
 export const Sidebar = ({ isOpen, onClose }) => {
   const { role } = useAuth();
+  const location = useLocation();
+
+  // Automatically dismiss mobile drawer whenever the pathname changes
+  useEffect(() => {
+    if (isOpen) {
+      onClose();
+    }
+  }, [location.pathname]);
 
   const adminNav = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
@@ -96,14 +104,15 @@ export const Sidebar = ({ isOpen, onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 lg:hidden"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 min-w-[36px] min-h-[36px] flex items-center justify-center lg:hidden transition-colors"
+            aria-label="Close Sidebar"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Navigation Menu */}
-        <div className="flex-1 px-3 py-4 overflow-y-auto space-y-1">
+        <div className="flex-1 px-3 py-4 overflow-y-auto space-y-1.5 touch-scroll">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-3 pb-1">
             Menu
           </div>
@@ -117,7 +126,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
                   if (window.innerWidth < 1024) onClose();
                 }}
                 className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
+                  `flex items-center gap-3 px-3 py-2.5 sm:py-2 min-h-[42px] sm:min-h-0 rounded-lg text-sm sm:text-xs transition-colors ${
                     isActive
                       ? `${accentClass} shadow-2xs`
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50 font-medium'
