@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   AlertTriangle,
   Plus,
@@ -12,7 +12,13 @@ import {
   Phone,
   ExternalLink,
   Copy,
-  User
+  User,
+  Search,
+  Users,
+  Clock,
+  CheckCheck,
+  ChevronRight,
+  AlertCircle
 } from 'lucide-react';
 import api from '../../api/axios';
 import { Badge } from '../../components/common/Badge';
@@ -26,6 +32,14 @@ export const WarningManagement = () => {
   const [students, setStudents] = useState([]);
   const [lowAttendanceStudents, setLowAttendanceStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Active view tab: 'warnings' or 'defaulters'
+  const [activeTab, setActiveTab] = useState('warnings');
+
+  // Search & filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
 
   const [issueModalOpen, setIssueModalOpen] = useState(false);
   const [openWhatsAppAfter, setOpenWhatsAppAfter] = useState(true);
@@ -143,7 +157,6 @@ export const WarningManagement = () => {
       waText = text || '';
     }
 
-    // Auto-select phone: prefer student stored phone, then parent stored phone, then passed phone
     const cleanStudentPhone = normalizeWhatsAppPhone(studentPhone);
     const cleanParentPhone = normalizeWhatsAppPhone(parentPhone);
     const cleanPassedPhone = normalizeWhatsAppPhone(phone);
@@ -261,7 +274,7 @@ export const WarningManagement = () => {
         message: msg,
       });
       if (res.success) {
-        toast.success(`Dispatched warning alert & email to ${student.name} and parent accounts!`);
+        toast.success(`Dispatched warning alert & email to ${student.name} and parent!`);
         fetchWarningsAndAlerts();
 
         const waText = `*Official Academic Notice - Campus Attendance Office*\n\nDear Parent/Guardian of ${student.name} (Roll No: ${student.roll_no}),\nThis is to notify you that your child's overall attendance is currently *${student.percentage}%*, which is below the mandatory 75% university requirement.\n\nPlease discuss this with your child and schedule a meeting with the class coordinator to avoid debarment from examinations.`;
@@ -294,32 +307,61 @@ export const WarningManagement = () => {
     }
   };
 
+  // Filtered warnings list
+  const filteredWarnings = useMemo(() => {
+    return warnings.filter((w) => {
+      const matchesSearch =
+        !searchQuery ||
+        (w.student_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (w.student_roll_no || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (w.message || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (w.type || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStatus = statusFilter === 'all' || w.status === statusFilter;
+      const matchesSeverity = severityFilter === 'all' || w.severity === severityFilter;
+
+      return matchesSearch && matchesStatus && matchesSeverity;
+    });
+  }, [warnings, searchQuery, statusFilter, severityFilter]);
+
+  // High severity count
+  const highSeverityCount = useMemo(() => {
+    return warnings.filter((w) => w.severity === 'high').length;
+  }, [warnings]);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
+      {/* Sleek Minimal Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-slate-200/60 dark:border-slate-800/60">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Disciplinary & Academic Warnings
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              Warnings & Disciplinary
+            </h1>
+            <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              Dual Dispatch
+            </span>
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Issue conduct & low attendance notices with automated In-App, Email (Gmail), and WhatsApp dispatch
+            Manage academic notices with automated Email (Gmail) and direct WhatsApp contact
           </p>
         </div>
 
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
+        {/* Action Controls */}
+        <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto">
           <button
             onClick={handleTestEmail}
             disabled={testingEmail}
-            className="flex-1 sm:flex-none justify-center px-3 py-2 sm:py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs disabled:opacity-50"
-            title="Sends a test verification email via configured Gmail SMTP"
+            className="flex-1 sm:flex-initial btn-press px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-medium inline-flex items-center justify-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs disabled:opacity-50"
+            title="Verify Gmail SMTP connection"
           >
-            <Mail className="w-3.5 h-3.5 text-slate-500" />
-            <span>{testingEmail ? 'Testing SMTP...' : 'Test Gmail'}</span>
+            <Mail className="w-3.5 h-3.5 text-slate-400" />
+            <span>{testingEmail ? 'Testing...' : 'Test SMTP'}</span>
           </button>
 
           <button
             onClick={() => setIssueModalOpen(true)}
-            className="flex-1 sm:flex-none justify-center px-3.5 py-2 sm:py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+            className="flex-1 sm:flex-initial btn-press px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Issue Warning</span>
@@ -327,128 +369,307 @@ export const WarningManagement = () => {
         </div>
       </div>
 
-      {/* Auto-suggested Low Attendance Warnings Card */}
-      {lowAttendanceStudents.length > 0 && (
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
-              <ShieldAlert className="w-4 h-4 shrink-0" />
-              <h3 className="text-xs font-semibold">
-                Attendance Risk Defaulters ({lowAttendanceStudents.length} Students Below 75%)
-              </h3>
-            </div>
-            <span className="text-[11px] text-slate-400">
-              Instant In-App, Email & WhatsApp Available
+      {/* Minimal KPI Strip */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('warnings')}
+          className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all btn-press ${
+            activeTab === 'warnings'
+              ? 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 shadow-2xs ring-1 ring-slate-200/70 dark:ring-slate-700/70'
+              : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800/70 hover:bg-white dark:hover:bg-slate-900'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total Issued</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
+          </div>
+          <div className="mt-1 text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+            {warnings.length}
+          </div>
+        </button>
+
+        <div className="p-2.5 sm:p-3 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-800/70 text-left">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400">Urgent / High</span>
+            <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+          </div>
+          <div className="mt-1 text-base sm:text-lg font-bold text-rose-600 dark:text-rose-400">
+            {highSeverityCount}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('defaulters')}
+          className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all btn-press ${
+            activeTab === 'defaulters'
+              ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800/80 shadow-2xs ring-1 ring-rose-200/70 dark:ring-rose-800/70'
+              : 'bg-white/60 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800/70 hover:bg-white dark:hover:bg-slate-900'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Defaulters &lt;75%</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+          </div>
+          <div className="mt-1 text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+            <span>{lowAttendanceStudents.length}</span>
+            {lowAttendanceStudents.length > 0 && (
+              <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 px-1.5 py-0.2 rounded-full bg-rose-100 dark:bg-rose-950/60">
+                Action
+              </span>
+            )}
+          </div>
+        </button>
+      </div>
+
+      {/* Windows Fluent / iOS Segmented Tab Bar & Search Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+        {/* Segmented Controls */}
+        <div className="inline-flex p-1 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl border border-slate-200/60 dark:border-slate-700/60 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('warnings')}
+            className={`btn-press px-3 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 ${
+              activeTab === 'warnings'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <span>Warnings History</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+              {warnings.length}
             </span>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            These students fail the mandatory 75% attendance threshold. Dispatch an official warning via Email/Portal or click WhatsApp:
-          </p>
+          </button>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
-            {lowAttendanceStudents.map((s) => {
-              const waTextParent = `*Official Academic Notice - Campus Attendance Office*\n\nDear Parent/Guardian of ${s.name} (Roll No: ${s.roll_no}),\nThis is to notify you that your child's overall attendance is currently *${s.percentage}%*, which is below the mandatory 75% university requirement.\n\nPlease discuss this with your child and schedule a meeting with the class coordinator to avoid debarment from examinations.`;
-              const waTextStudent = `*Official Academic Notice - Campus Attendance Office*\n\nAttention ${s.name} (${s.roll_no}),\nYour overall attendance has dropped to *${s.percentage}%* (Below 75% minimum threshold).\nPlease meet your class coordinator immediately to regularize your attendance.`;
-
-              return (
-                <div
-                  key={s.id}
-                  className="p-3.5 bg-slate-50/60 dark:bg-slate-800/40 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between gap-3 shadow-2xs"
-                >
-                  <div>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{s.name}</p>
-                      <span className="text-xs font-mono font-bold text-rose-600 dark:text-rose-400">
-                        {s.percentage}%
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      {s.roll_no} • {s.class_name}
-                    </p>
-                    {s.phone && (
-                      <p className="text-[10px] text-slate-400 font-mono mt-1">
-                        Phone: {s.phone} {s.parent_phone ? `• Parent: ${s.parent_phone}` : ''}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickSendLowAttendance(s)}
-                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-[11px] font-medium transition-colors flex items-center justify-center gap-1 shadow-2xs"
-                      title="Issues official warning and dispatches In-App alert + Email"
-                    >
-                      <Mail className="w-3 h-3" />
-                      <span>Issue & Email</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleOpenWhatsAppModal({
-                          phone: s.parent_phone || s.phone,
-                          contactName: s.parent_name ? `${s.parent_name} (Parent of ${s.name})` : s.name,
-                          text: s.parent_phone ? waTextParent : waTextStudent,
-                          studentPhone: s.phone,
-                          parentPhone: s.parent_phone,
-                          studentName: s.name,
-                          parentName: s.parent_name,
-                        })
-                      }
-                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium transition-colors flex items-center gap-1 shadow-2xs"
-                      title="Open WhatsApp with pre-filled warning text"
-                    >
-                      <MessageSquare className="w-3 h-3" />
-                      <span>WhatsApp</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Warnings History Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs overflow-hidden">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-slate-500" />
-            Official Warning History & Contact Dispatch
-          </h3>
-          <span className="text-[11px] text-slate-400">
-            {warnings.length} warning record(s)
-          </span>
+          <button
+            type="button"
+            onClick={() => setActiveTab('defaulters')}
+            className={`btn-press px-3 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 ${
+              activeTab === 'defaulters'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <span>Attendance Defaulters</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+              lowAttendanceStudents.length > 0
+                ? 'bg-rose-500 text-white'
+                : 'bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              {lowAttendanceStudents.length}
+            </span>
+          </button>
         </div>
 
-        {loading ? (
-          <div className="p-5">
-            <SkeletonLoader count={4} type="table" />
+        {/* Filter & Search Bar */}
+        {activeTab === 'warnings' && (
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-56">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search warnings..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-2.5 py-1 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-2 py-1 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none"
+            >
+              <option value="all">All Status</option>
+              <option value="sent">Sent</option>
+              <option value="read">Read</option>
+              <option value="resolved">Resolved</option>
+            </select>
+
+            <select
+              value={severityFilter}
+              onChange={(e) => setSeverityFilter(e.target.value)}
+              className="px-2 py-1 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none"
+            >
+              <option value="all">All Severity</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
           </div>
-        ) : warnings.length === 0 ? (
-          <EmptyState
-            icon={CheckCircle}
-            title="No warnings issued"
-            description="All students are currently in good standing without active warnings."
-          />
-        ) : (
-          <div className="overflow-x-auto touch-scroll responsive-table-container">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/70 dark:bg-slate-800/40 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80 dark:border-slate-800/80">
-                <tr>
-                  <th className="py-3 px-4">Student</th>
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-4">Severity</th>
-                  <th className="py-3 px-4">Details</th>
-                  <th className="py-3 px-4">Dispatch Channels</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Issued On</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {warnings.map((w) => {
+        )}
+      </div>
+
+      {/* Main Content: Tab 1 (Warnings History) */}
+      {activeTab === 'warnings' && (
+        <div className="space-y-3">
+          {loading ? (
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
+              <SkeletonLoader count={4} type="table" />
+            </div>
+          ) : filteredWarnings.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-8 text-center">
+              <EmptyState
+                icon={CheckCircle}
+                title={searchQuery || statusFilter !== 'all' ? "No matching warnings" : "No warnings issued"}
+                description={
+                  searchQuery || statusFilter !== 'all'
+                    ? "Try adjusting your search criteria or status filter."
+                    : "All students are currently in good standing without active disciplinary warnings."
+                }
+              />
+            </div>
+          ) : (
+            <>
+              {/* DESKTOP / WINDOWS FLUENT DATA GRID (hidden on screens < 768px) */}
+              <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/70 dark:bg-slate-800/50 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80 dark:border-slate-800/80">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Student</th>
+                      <th className="py-2.5 px-3">Type</th>
+                      <th className="py-2.5 px-3">Severity</th>
+                      <th className="py-2.5 px-3">Message</th>
+                      <th className="py-2.5 px-3">Status</th>
+                      <th className="py-2.5 px-3">Issued</th>
+                      <th className="py-2.5 px-3.5 text-right">Direct Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {filteredWarnings.map((w) => {
+                      const matchingStudent = students.find((s) => s.id === w.student_id);
+                      const parentPhone = w.parent_phone || matchingStudent?.parent_phone || '';
+                      const studentPhone = w.student_phone || matchingStudent?.phone || '';
+                      const parentName = w.parent_name || matchingStudent?.parent_name || '';
+                      const waText = `*Official Academic Notice - Campus Attendance Office*\n\nAttention: An official *${w.severity.toUpperCase()}* severity warning has been logged for *${w.student_name}* (Roll: ${w.student_roll_no}).\n\n*Category:* ${w.type}\n*Message:* ${w.message}\n\nPlease contact the administration immediately regarding this matter.`;
+
+                      return (
+                        <tr
+                          key={w.id}
+                          className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors group"
+                        >
+                          <td className="py-2.5 px-3.5">
+                            <p className="font-semibold text-slate-900 dark:text-white">{w.student_name}</p>
+                            <p className="text-[10px] font-mono text-slate-400">{w.student_roll_no}</p>
+                          </td>
+
+                          <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300">
+                            {w.type}
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide capitalize ${
+                                w.severity === 'high'
+                                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900'
+                                  : w.severity === 'medium'
+                                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
+                                  : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              {w.severity}
+                            </span>
+                          </td>
+
+                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 max-w-xs truncate text-[11px]" title={w.message}>
+                            {w.message}
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <select
+                              value={w.status}
+                              onChange={(e) => handleStatusUpdate(w.id, e.target.value)}
+                              className="px-2 py-0.5 text-[11px] rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                            >
+                              <option value="sent">Sent</option>
+                              <option value="read">Read</option>
+                              <option value="resolved">Resolved</option>
+                            </select>
+                          </td>
+
+                          <td className="py-2.5 px-3 text-slate-400 text-[11px] whitespace-nowrap">
+                            {new Date(w.created_at).toLocaleDateString()}
+                          </td>
+
+                          <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {parentPhone && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleOpenWhatsAppModal({
+                                      phone: parentPhone,
+                                      contactName: `${parentName || 'Parent'} (${w.student_name})`,
+                                      text: waText,
+                                      studentPhone: studentPhone,
+                                      parentPhone: parentPhone,
+                                      studentName: w.student_name,
+                                      parentName: parentName,
+                                    })
+                                  }
+                                  className="btn-press px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 text-[10px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
+                                  title={`WhatsApp Parent: ${parentPhone}`}
+                                >
+                                  <MessageSquare className="w-2.5 h-2.5" />
+                                  <span>Parent</span>
+                                </button>
+                              )}
+
+                              {studentPhone && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleOpenWhatsAppModal({
+                                      phone: studentPhone,
+                                      contactName: w.student_name,
+                                      text: waText,
+                                      studentPhone: studentPhone,
+                                      parentPhone: parentPhone,
+                                      studentName: w.student_name,
+                                      parentName: parentName,
+                                    })
+                                  }
+                                  className="btn-press px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
+                                  title={`WhatsApp Student: ${studentPhone}`}
+                                >
+                                  <MessageSquare className="w-2.5 h-2.5" />
+                                  <span>Student</span>
+                                </button>
+                              )}
+
+                              {!parentPhone && !studentPhone && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleOpenWhatsAppModal({
+                                      phone: '',
+                                      contactName: w.student_name,
+                                      text: waText,
+                                      studentPhone: '',
+                                      parentPhone: '',
+                                      studentName: w.student_name,
+                                      parentName: '',
+                                    })
+                                  }
+                                  className="btn-press px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-medium transition-colors inline-flex items-center gap-1"
+                                >
+                                  <MessageSquare className="w-2.5 h-2.5" />
+                                  <span>WA</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MOBILE STREAMLINED CARD FEED (visible on screens < 768px, zero table horizontal scrolling) */}
+              <div className="md:hidden space-y-2.5">
+                {filteredWarnings.map((w) => {
                   const matchingStudent = students.find((s) => s.id === w.student_id);
                   const parentPhone = w.parent_phone || matchingStudent?.parent_phone || '';
                   const studentPhone = w.student_phone || matchingStudent?.phone || '';
@@ -456,66 +677,58 @@ export const WarningManagement = () => {
                   const waText = `*Official Academic Notice - Campus Attendance Office*\n\nAttention: An official *${w.severity.toUpperCase()}* severity warning has been logged for *${w.student_name}* (Roll: ${w.student_roll_no}).\n\n*Category:* ${w.type}\n*Message:* ${w.message}\n\nPlease contact the administration immediately regarding this matter.`;
 
                   return (
-                    <tr
+                    <div
                       key={w.id}
-                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                      className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-2.5"
                     >
-                      <td className="py-3 px-4">
-                        <p className="font-bold text-slate-900 dark:text-white">{w.student_name}</p>
-                        <p className="text-[11px] font-mono text-slate-400">{w.student_roll_no}</p>
-                      </td>
-                      <td className="py-3 px-4 font-medium text-slate-700 dark:text-slate-300">
-                        {w.type}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge
-                          variant={
-                            w.severity === 'high'
-                              ? 'urgent'
-                              : w.severity === 'medium'
-                              ? 'important'
-                              : 'default'
-                          }
-                          size="sm"
-                        >
-                          {w.severity}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300 max-w-xs leading-relaxed text-[11px]">
-                        {w.message}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex flex-col gap-1">
-                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                            <Mail className="w-3 h-3" />
-                            Email Dispatched
-                          </span>
-                          {(parentPhone || studentPhone) ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                              <MessageSquare className="w-3 h-3" />
-                              WhatsApp Ready
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-400">No phone listed</span>
-                          )}
+                      {/* Top Header: Student & Severity */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                            {w.student_name}
+                          </p>
+                          <p className="text-[10px] font-mono text-slate-400 mt-0.5">
+                            {w.student_roll_no} • {w.type}
+                          </p>
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <select
-                          value={w.status}
-                          onChange={(e) => handleStatusUpdate(w.id, e.target.value)}
-                          className="px-2 py-1 text-[11px] rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
-                        >
-                          <option value="sent">Sent</option>
-                          <option value="read">Read</option>
-                          <option value="resolved">Resolved</option>
-                        </select>
-                      </td>
-                      <td className="py-3 px-4 text-slate-400 text-[11px]">
-                        {new Date(w.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize ${
+                              w.severity === 'high'
+                                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                                : w.severity === 'medium'
+                                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            }`}
+                          >
+                            {w.severity}
+                          </span>
+
+                          <select
+                            value={w.status}
+                            onChange={(e) => handleStatusUpdate(w.id, e.target.value)}
+                            className="px-1.5 py-0.5 text-[10px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+                          >
+                            <option value="sent">Sent</option>
+                            <option value="read">Read</option>
+                            <option value="resolved">Done</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Warning Message snippet */}
+                      <div className="p-2 rounded-lg bg-slate-50/70 dark:bg-slate-800/40 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed border border-slate-100 dark:border-slate-800">
+                        {w.message}
+                      </div>
+
+                      {/* Contact Channels & Direct Touch Buttons */}
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(w.created_at).toLocaleDateString()}
+                        </span>
+
+                        <div className="flex items-center gap-1.5">
                           {parentPhone && (
                             <button
                               type="button"
@@ -530,13 +743,13 @@ export const WarningManagement = () => {
                                   parentName: parentName,
                                 })
                               }
-                              className="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 text-[10px] font-medium transition-colors flex items-center gap-1"
-                              title={`Send WhatsApp to Parent (${parentPhone})`}
+                              className="btn-press px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
                             >
-                              <MessageSquare className="w-2.5 h-2.5" />
-                              <span>WA Parent</span>
+                              <MessageSquare className="w-3 h-3" />
+                              <span>Parent</span>
                             </button>
                           )}
+
                           {studentPhone && (
                             <button
                               type="button"
@@ -551,63 +764,126 @@ export const WarningManagement = () => {
                                   parentName: parentName,
                                 })
                               }
-                              className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-medium transition-colors flex items-center gap-1"
-                              title={`Send WhatsApp to Student (${studentPhone})`}
+                              className="btn-press px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-[11px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
                             >
-                              <MessageSquare className="w-2.5 h-2.5" />
-                              <span>WA Student</span>
-                            </button>
-                          )}
-                          {!parentPhone && !studentPhone && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleOpenWhatsAppModal({
-                                  phone: '',
-                                  contactName: w.student_name,
-                                  text: waText,
-                                  studentPhone: '',
-                                  parentPhone: '',
-                                  studentName: w.student_name,
-                                  parentName: '',
-                                })
-                              }
-                              className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-medium transition-colors flex items-center gap-1"
-                              title="Open WhatsApp dispatch"
-                            >
-                              <MessageSquare className="w-2.5 h-2.5" />
-                              <span>WhatsApp</span>
+                              <MessageSquare className="w-3 h-3" />
+                              <span>Student</span>
                             </button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
-      {/* Issue Warning Modal */}
+      {/* Main Content: Tab 2 (Attendance Defaulters < 75%) */}
+      {activeTab === 'defaulters' && (
+        <div className="space-y-3">
+          {lowAttendanceStudents.length === 0 ? (
+            <div className="p-8 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 text-center">
+              <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                No Defaulters Found
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                All enrolled students currently meet or exceed the 75% attendance threshold.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+              {lowAttendanceStudents.map((s) => {
+                const waTextParent = `*Official Academic Notice - Campus Attendance Office*\n\nDear Parent/Guardian of ${s.name} (Roll No: ${s.roll_no}),\nThis is to notify you that your child's overall attendance is currently *${s.percentage}%*, which is below the mandatory 75% university requirement.\n\nPlease discuss this with your child and schedule a meeting with the class coordinator to avoid debarment from examinations.`;
+                const waTextStudent = `*Official Academic Notice - Campus Attendance Office*\n\nAttention ${s.name} (${s.roll_no}),\nYour overall attendance has dropped to *${s.percentage}%* (Below 75% minimum threshold).\nPlease meet your class coordinator immediately to regularize your attendance.`;
+
+                return (
+                  <div
+                    key={s.id}
+                    className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between gap-2.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {s.name}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                            {s.roll_no} • {s.class_name}
+                          </p>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
+                          {s.percentage}%
+                        </span>
+                      </div>
+
+                      {/* Contact Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        {s.phone && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            👤 {s.phone}
+                          </span>
+                        )}
+                        {s.parent_phone && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            👪 {s.parent_phone}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Bar */}
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickSendLowAttendance(s)}
+                        className="flex-1 btn-press px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-[11px] font-medium transition-colors flex items-center justify-center gap-1 shadow-2xs"
+                        title="Issues official notice and dispatches Email + In-App alert"
+                      >
+                        <Mail className="w-3 h-3" />
+                        <span>Issue & Email</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenWhatsAppModal({
+                            phone: s.parent_phone || s.phone,
+                            contactName: s.parent_name ? `${s.parent_name} (Parent of ${s.name})` : s.name,
+                            text: s.parent_phone ? waTextParent : waTextStudent,
+                            studentPhone: s.phone,
+                            parentPhone: s.parent_phone,
+                            studentName: s.name,
+                            parentName: s.parent_name,
+                          })
+                        }
+                        className="btn-press px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium transition-colors flex items-center gap-1 shadow-2xs"
+                        title="Open WhatsApp modal with prefilled notice"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>WhatsApp</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MINIMAL ISSUE WARNING MODAL */}
       <Modal
         isOpen={issueModalOpen}
         onClose={() => setIssueModalOpen(false)}
-        title="Issue Official Student Warning"
-        maxWidth="max-w-lg"
+        title="Issue Student Warning"
+        maxWidth="max-w-md"
       >
-        <form onSubmit={handleIssueWarning} className="space-y-4">
-          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300 space-y-1">
-            <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-slate-500" />
-              Automated Dual Dispatch Enabled
-            </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Dispatches via in-app portal alert and SMTP email to the student and linked parents. WhatsApp links will be ready upon creation.
-            </p>
-          </div>
-
+        <form onSubmit={handleIssueWarning} className="space-y-3.5">
+          {/* Target Student */}
           <div>
             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
               Select Student *
@@ -616,7 +892,7 @@ export const WarningManagement = () => {
               required
               value={form.student_id}
               onChange={(e) => handleStudentSelect(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
             >
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -626,18 +902,19 @@ export const WarningManagement = () => {
             </select>
           </div>
 
-          {/* WhatsApp Mobile Number Field directly inside Issue Warning form */}
+          {/* Database Phone Autofill & Toggle */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
-                WhatsApp Mobile Number *
+                WhatsApp Phone *
               </label>
               {form.phone && (
-                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
-                  ✓ Autofilled from student database record
+                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                  ✓ Database autofilled
                 </span>
               )}
             </div>
+
             <div className="relative">
               <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
               <input
@@ -649,19 +926,21 @@ export const WarningManagement = () => {
                 className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
               />
             </div>
+
+            {/* Quick-switch pills for stored database contacts */}
             {(() => {
               const currentStudent = students.find((s) => String(s.id) === String(form.student_id));
               if (!currentStudent) return null;
               return (
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                  <span className="text-[10px] text-slate-400">Database Stored Numbers:</span>
+                  <span className="text-[10px] text-slate-400">Autofill from:</span>
                   {currentStudent.phone && (
                     <button
                       type="button"
                       onClick={() => setForm((prev) => ({ ...prev, phone: normalizeWhatsAppPhone(currentStudent.phone) }))}
-                      className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer ${
+                      className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer btn-press ${
                         form.phone === normalizeWhatsAppPhone(currentStudent.phone)
-                          ? 'bg-emerald-600 text-white border-emerald-600 font-semibold'
+                          ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs'
                           : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                       }`}
                     >
@@ -672,9 +951,9 @@ export const WarningManagement = () => {
                     <button
                       type="button"
                       onClick={() => setForm((prev) => ({ ...prev, phone: normalizeWhatsAppPhone(currentStudent.parent_phone) }))}
-                      className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer ${
+                      className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer btn-press ${
                         form.phone === normalizeWhatsAppPhone(currentStudent.parent_phone)
-                          ? 'bg-emerald-600 text-white border-emerald-600 font-semibold'
+                          ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs'
                           : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                       }`}
                     >
@@ -686,15 +965,16 @@ export const WarningManagement = () => {
             })()}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Type & Severity */}
+          <div className="grid grid-cols-2 gap-2.5">
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Warning Type
+                Category
               </label>
               <select
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
               >
                 <option value="Low Attendance">Low Attendance</option>
                 <option value="Poor Marks">Poor Marks</option>
@@ -710,7 +990,7 @@ export const WarningManagement = () => {
               <select
                 value={form.severity}
                 onChange={(e) => setForm({ ...form, severity: e.target.value })}
-                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -719,22 +999,24 @@ export const WarningManagement = () => {
             </div>
           </div>
 
+          {/* Notice Message */}
           <div>
             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Warning Message *
+              Notice Description *
             </label>
             <textarea
               required
-              rows={4}
+              rows={3}
               value={form.message}
               onChange={(e) => setForm({ ...form, message: e.target.value })}
               className="w-full p-2.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
-              placeholder="State the reason, percentage, and required action for the student..."
+              placeholder="State the reason, percentage, or required remedial action..."
             />
           </div>
 
-          <div className="pt-1">
-            <label className="flex items-center gap-2 cursor-pointer">
+          {/* WhatsApp Autolaunch Option */}
+          <div className="pt-0.5">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={openWhatsAppAfter}
@@ -742,64 +1024,57 @@ export const WarningManagement = () => {
                 className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-700 text-slate-900 focus:ring-0"
               />
               <span className="text-xs text-slate-600 dark:text-slate-300">
-                Open WhatsApp Dispatch immediately after issuing
+                Open WhatsApp contact sheet immediately after issuing
               </span>
             </label>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          {/* Dialog Action Buttons */}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={() => setIssueModalOpen(false)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200/80 dark:border-slate-700/80 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              className="btn-press px-3 py-1.5 rounded-lg border border-slate-200/80 dark:border-slate-700/80 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium transition-colors shadow-2xs disabled:opacity-50"
+              className="btn-press px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium transition-colors shadow-2xs disabled:opacity-50"
             >
-              {submitting ? 'Dispatching...' : 'Dispatch Warning & Email'}
+              {submitting ? 'Dispatching...' : 'Dispatch Warning'}
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Interactive WhatsApp Dispatch Modal */}
+      {/* MINIMAL INTERACTIVE WHATSAPP MODAL */}
       <Modal
         isOpen={waModalOpen}
         onClose={() => setWaModalOpen(false)}
-        title="Send Warning Notice via WhatsApp"
+        title="WhatsApp Dispatch Sheet"
         maxWidth="max-w-md"
       >
-        <div className="space-y-4">
-          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300">
-            <p className="font-semibold flex items-center gap-1.5">
-              <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              Target Recipient: {waData.recipientName}
-            </p>
-            <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
-              You can verify or edit the recipient mobile number before launching WhatsApp.
-            </p>
+        <div className="space-y-3.5">
+          {/* Target Banner */}
+          <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-xs font-medium">
+              <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>To: {waData.recipientName}</span>
+            </div>
+            <span className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 font-mono">
+              Direct API
+            </span>
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
-                WhatsApp Mobile Number (e.g. 919876543210) *
-              </label>
-              {waData.phone && (
-                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded flex items-center gap-1">
-                  ✓ Autofilled from student database record
-                </span>
-              )}
-            </div>
-
-            {/* Quick-select pills for Student & Parent database numbers */}
-            {(waData.studentPhone || waData.parentPhone) && (
-              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">Database Stored Numbers:</span>
+          {/* Quick Contact Toggle Pills */}
+          {(waData.studentPhone || waData.parentPhone) && (
+            <div className="space-y-1">
+              <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                Switch Contact Target:
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
                 {waData.studentPhone && (
                   <button
                     type="button"
@@ -810,16 +1085,17 @@ export const WarningManagement = () => {
                         recipientName: prev.studentName ? `${prev.studentName} (Student)` : 'Student',
                       }));
                     }}
-                    className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 btn-press cursor-pointer ${
                       waData.phone === waData.studentPhone
-                        ? 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:border-emerald-500 font-semibold shadow-2xs'
-                        : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                        ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs'
+                        : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                     }`}
                   >
                     <span>👤 Student:</span>
                     <span className="font-mono">{waData.studentPhone}</span>
                   </button>
                 )}
+
                 {waData.parentPhone && (
                   <button
                     type="button"
@@ -830,10 +1106,10 @@ export const WarningManagement = () => {
                         recipientName: prev.parentName ? `${prev.parentName} (Parent)` : 'Parent',
                       }));
                     }}
-                    className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 btn-press cursor-pointer ${
                       waData.phone === waData.parentPhone
-                        ? 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:border-emerald-500 font-semibold shadow-2xs'
-                        : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                        ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs'
+                        : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                     }`}
                   >
                     <span>👪 Parent:</span>
@@ -841,14 +1117,14 @@ export const WarningManagement = () => {
                   </button>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {!waData.parentPhone && !waData.studentPhone && !waData.phone && (
-              <div className="mb-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-700 dark:text-amber-300">
-                Notice: No contact number was found in this student's profile. Please enter the number manually below.
-              </div>
-            )}
-
+          {/* Editable WhatsApp Phone Number */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+              WhatsApp Phone Number *
+            </label>
             <div className="relative">
               <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
               <input
@@ -859,49 +1135,49 @@ export const WarningManagement = () => {
                 className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
               />
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Note: 10-digit Indian numbers will automatically be prefixed with 91.
-            </p>
           </div>
 
+          {/* Notice Textarea with Copy Button */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Formatted Warning Notice
+                Notice Preview
               </label>
               <button
                 type="button"
                 onClick={handleCopyWhatsAppText}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                className="btn-press inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               >
                 <Copy className="w-3 h-3" />
-                Copy
+                <span>Copy</span>
               </button>
             </div>
             <textarea
-              rows={5}
+              rows={4}
               value={waData.text}
               onChange={(e) => setWaData({ ...waData, text: e.target.value })}
               className="w-full p-2.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
             />
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+          {/* Action Launch Buttons (Desktop Web & Mobile/App) */}
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={() => handleLaunchWhatsApp('web')}
-              className="w-full sm:flex-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+              className="btn-press px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Open WhatsApp Web</span>
+              <span>WhatsApp Web</span>
             </button>
+
             <button
               type="button"
               onClick={() => handleLaunchWhatsApp('app')}
-              className="w-full sm:flex-1 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+              className="btn-press px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span>Open WhatsApp App</span>
+              <span>WhatsApp App</span>
             </button>
           </div>
         </div>
