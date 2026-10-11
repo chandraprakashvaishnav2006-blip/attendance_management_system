@@ -57,6 +57,12 @@ class WarningCreate(BaseModel):
     severity: str = "medium"  # low, medium, high
     message: str
 
+class BulkWarningCreate(BaseModel):
+    student_ids: list[int] | None = None  # If empty or None, targets all students
+    type: str = "Low Attendance"
+    severity: str = "medium"
+    message: str
+
 class WarningUpdate(BaseModel):
     status: str  # sent, read, resolved
 

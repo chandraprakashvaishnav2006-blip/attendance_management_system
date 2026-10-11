@@ -49,6 +49,7 @@ from app.schemas.attendance import (
     AttendanceUpdate,
 )
 from app.schemas.communication import (
+    BulkWarningCreate,
     NoticeCreate,
     NoticeOut,
     NoticeUpdate,
@@ -1895,6 +1896,64 @@ def issue_warning(
             issued_by=new_warning.issued_by,
             created_at=new_warning.created_at
         )
+    )
+
+@router.post("/warnings/bulk", response_model=ApiResponse[dict])
+def issue_bulk_warnings(
+    data: BulkWarningCreate,
+    current_admin: User = Depends(require_role("ADMIN")),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Student).filter(Student.status == "ACTIVE")
+    if data.student_ids:
+        query = query.filter(Student.id.in_(data.student_ids))
+    students = query.all()
+
+    if not students:
+        raise HTTPException(status_code=400, detail="No matching active students found to dispatch warning")
+
+    issued_warnings = []
+    notified_data = []
+
+    for st in students:
+        new_warning = Warning(
+            student_id=st.id,
+            type=data.type,
+            severity=data.severity,
+            message=data.message,
+            status="sent",
+            issued_by=current_admin.id
+        )
+        db.add(new_warning)
+        issued_warnings.append(new_warning)
+
+        p = st.parents[0] if st.parents else None
+        notified_data.append({
+            "student_id": st.id,
+            "student_name": st.name,
+            "student_roll_no": st.roll_no,
+            "student_phone": st.phone,
+            "parent_name": p.name if p else None,
+            "parent_phone": p.phone if p else None,
+        })
+
+    db.commit()
+
+    # Dispatches notifications and emails to student and linked parents for all
+    for w in issued_warnings:
+        db.refresh(w)
+        try:
+            notify_warning_issued(db, w)
+        except Exception:
+            pass
+
+    return ApiResponse(
+        success=True,
+        message=f"Dispatched official warnings & emails to {len(issued_warnings)} students and their parents in one click.",
+        data={
+            "total_issued": len(issued_warnings),
+            "students": notified_data
+        }
     )
 
 @router.put("/warnings/{warning_id}", response_model=ApiResponse)

@@ -18,7 +18,10 @@ import {
   Clock,
   CheckCheck,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Megaphone,
+  Sparkles,
+  Layers
 } from 'lucide-react';
 import api from '../../api/axios';
 import { Badge } from '../../components/common/Badge';
@@ -41,28 +44,42 @@ export const WarningManagement = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
 
+  // Single Student Warning Modal state
   const [issueModalOpen, setIssueModalOpen] = useState(false);
   const [openWhatsAppAfter, setOpenWhatsAppAfter] = useState(true);
   const [form, setForm] = useState({
     student_id: '',
+    target: 'both', // 'both' | 'student' | 'parent'
     type: 'Low Attendance',
     severity: 'medium',
     message: '',
-    phone: '',
+    student_phone: '',
+    parent_phone: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
 
-  // Dedicated interactive WhatsApp Dispatch Modal state
+  // Broadcast / Bulk Message to ALL Students Modal state
+  const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
+  const [broadcastForm, setBroadcastForm] = useState({
+    targetRecipient: 'both', // 'both' | 'student' | 'parent'
+    type: 'Low Attendance',
+    severity: 'medium',
+    message: '',
+  });
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [bulkDefaultersSending, setBulkDefaultersSending] = useState(false);
+
+  // Interactive WhatsApp Dispatch Modal state (Supports BOTH child and parent)
   const [waModalOpen, setWaModalOpen] = useState(false);
   const [waData, setWaData] = useState({
-    recipientName: '',
-    phone: '',
-    text: '',
-    studentPhone: '',
-    parentPhone: '',
+    targetMode: 'both', // 'both' | 'student' | 'parent'
     studentName: '',
     parentName: '',
+    studentPhone: '',
+    parentPhone: '',
+    studentRoll: '',
+    text: '',
   });
 
   const normalizeWhatsAppPhone = (rawPhone) => {
@@ -86,11 +103,11 @@ export const WarningManagement = () => {
 
   const handleStudentSelect = (studentId) => {
     const s = students.find((st) => String(st.id) === String(studentId));
-    const phoneToUse = s?.phone || s?.parent_phone || '';
     setForm((prev) => ({
       ...prev,
       student_id: String(studentId),
-      phone: normalizeWhatsAppPhone(phoneToUse),
+      student_phone: normalizeWhatsAppPhone(s?.phone || ''),
+      parent_phone: normalizeWhatsAppPhone(s?.parent_phone || ''),
     }));
   };
 
@@ -115,11 +132,11 @@ export const WarningManagement = () => {
         setStudents(sortedStudents);
         if (sortedStudents.length > 0) {
           const first = sortedStudents[0];
-          const firstPhone = first.phone || first.parent_phone || '';
           setForm((prev) => ({
             ...prev,
             student_id: String(first.id),
-            phone: normalizeWhatsAppPhone(firstPhone),
+            student_phone: normalizeWhatsAppPhone(first.phone || ''),
+            parent_phone: normalizeWhatsAppPhone(first.parent_phone || ''),
           }));
         }
       }
@@ -134,71 +151,69 @@ export const WarningManagement = () => {
     fetchWarningsAndAlerts();
   }, []);
 
-  const handleOpenWhatsAppModal = (optionsOrPhone, contactName, text) => {
-    let phone = '';
-    let recipientName = '';
-    let waText = '';
-    let studentPhone = '';
-    let parentPhone = '';
-    let studentName = '';
-    let parentName = '';
-
-    if (typeof optionsOrPhone === 'object' && optionsOrPhone !== null) {
-      phone = optionsOrPhone.phone || '';
-      recipientName = optionsOrPhone.contactName || '';
-      waText = optionsOrPhone.text || '';
-      studentPhone = optionsOrPhone.studentPhone || '';
-      parentPhone = optionsOrPhone.parentPhone || '';
-      studentName = optionsOrPhone.studentName || '';
-      parentName = optionsOrPhone.parentName || '';
-    } else {
-      phone = optionsOrPhone || '';
-      recipientName = contactName || '';
-      waText = text || '';
-    }
-
-    const cleanStudentPhone = normalizeWhatsAppPhone(studentPhone);
-    const cleanParentPhone = normalizeWhatsAppPhone(parentPhone);
-    const cleanPassedPhone = normalizeWhatsAppPhone(phone);
-
-    const chosenCleanPhone = cleanPassedPhone || cleanStudentPhone || cleanParentPhone || '';
-
-    const resolvedRecipient =
-      recipientName ||
-      (chosenCleanPhone && chosenCleanPhone === cleanStudentPhone
-        ? (studentName ? `${studentName} (Student)` : 'Student')
-        : chosenCleanPhone && chosenCleanPhone === cleanParentPhone
-        ? (parentName ? `${parentName} (Parent)` : 'Parent')
-        : (studentName || 'Student Contact'));
-
+  // Open WhatsApp Modal with support for BOTH student and parent
+  const handleOpenWhatsAppModal = ({
+    studentName = '',
+    parentName = '',
+    studentPhone = '',
+    parentPhone = '',
+    studentRoll = '',
+    text = '',
+    preferredTarget = 'both',
+  }) => {
     setWaData({
-      recipientName: resolvedRecipient,
-      phone: chosenCleanPhone,
-      text: waText,
-      studentPhone: cleanStudentPhone,
-      parentPhone: cleanParentPhone,
-      studentName: studentName,
-      parentName: parentName,
+      targetMode: preferredTarget,
+      studentName: studentName || 'Student',
+      parentName: parentName || 'Parent',
+      studentPhone: normalizeWhatsAppPhone(studentPhone),
+      parentPhone: normalizeWhatsAppPhone(parentPhone),
+      studentRoll: studentRoll || '',
+      text: text || '',
     });
     setWaModalOpen(true);
   };
 
-  const handleLaunchWhatsApp = (mode = 'app') => {
-    let num = waData.phone.replace(/[^0-9]/g, '');
+  // Launch WhatsApp link for a specific phone number
+  const launchWhatsAppLink = (phoneNum, messageText, mode = 'web') => {
+    let num = String(phoneNum || '').replace(/[^0-9]/g, '');
     if (!num || num.length < 7) {
-      toast.error('Please enter a valid WhatsApp mobile number with country code (e.g. 919876543210)');
-      return;
+      toast.error('Please enter a valid mobile number with country code (e.g. 919876543210)');
+      return false;
     }
     if (num.length === 10) {
       num = '91' + num;
     }
-    const encoded = encodeURIComponent(waData.text);
+    const encoded = encodeURIComponent(messageText);
     const url =
       mode === 'web'
         ? `https://web.whatsapp.com/send?phone=${num}&text=${encoded}`
         : `https://api.whatsapp.com/send?phone=${num}&text=${encoded}`;
 
     window.open(url, '_blank', 'noopener,noreferrer');
+    return true;
+  };
+
+  // Launch WhatsApp for BOTH student and parent in separate tabs
+  const handleLaunchWhatsAppBoth = (mode = 'web') => {
+    let launchedCount = 0;
+    if (waData.studentPhone) {
+      const studentNotice = waData.text.replace(/Dear Parent\/Guardian of.*?\n\n/i, '');
+      launchWhatsAppLink(waData.studentPhone, studentNotice || waData.text, mode);
+      launchedCount++;
+    }
+    if (waData.parentPhone) {
+      // Small timeout so browsers handle multiple window opens cleanly
+      setTimeout(() => {
+        launchWhatsAppLink(waData.parentPhone, waData.text, mode);
+      }, 350);
+      launchedCount++;
+    }
+
+    if (launchedCount === 0) {
+      toast.error('No valid phone numbers found for student or parent');
+    } else {
+      toast.success(`Launching WhatsApp for ${launchedCount} contact(s)!`);
+    }
   };
 
   const handleCopyWhatsAppText = () => {
@@ -220,23 +235,27 @@ export const WarningManagement = () => {
     }
   };
 
+  // Issue single student warning (dispatches in-app, email to both student & parents)
   const handleIssueWarning = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       const res = await api.post('/admin/warnings', {
-        ...form,
         student_id: Number(form.student_id),
+        type: form.type,
+        severity: form.severity,
+        message: form.message,
       });
+
       if (res.success) {
-        toast.success('Warning issued! Transmitted via In-App Alert and Email.');
+        toast.success('Warning issued! Transmitted via In-App Alert & Email to both Student and Parent accounts.');
         setIssueModalOpen(false);
 
         const targetStudent = students.find((s) => String(s.id) === String(form.student_id));
         const targetRoll = res.data?.student_roll_no || targetStudent?.roll_no || '';
         const targetName = res.data?.student_name || targetStudent?.name || 'Student';
-        const sPhone = res.data?.student_phone || targetStudent?.phone || '';
-        const pPhone = res.data?.parent_phone || targetStudent?.parent_phone || '';
+        const sPhone = form.student_phone || res.data?.student_phone || targetStudent?.phone || '';
+        const pPhone = form.parent_phone || res.data?.parent_phone || targetStudent?.parent_phone || '';
         const pName = res.data?.parent_name || targetStudent?.parent_name || 'Parent';
 
         const waNotice = `*Official Academic Notice - Campus Attendance Office*\n\nAttention: An official *${form.severity.toUpperCase()}* severity warning has been logged for *${targetName}* (Roll: ${targetRoll}).\n\n*Category:* ${form.type}\n*Notice:* ${form.message}\n\nPlease contact the administration immediately regarding this matter.`;
@@ -245,15 +264,14 @@ export const WarningManagement = () => {
         fetchWarningsAndAlerts();
 
         if (openWhatsAppAfter) {
-          const chosenPhone = form.phone || sPhone || pPhone;
           handleOpenWhatsAppModal({
-            phone: chosenPhone,
-            contactName: chosenPhone && chosenPhone === normalizeWhatsAppPhone(pPhone) ? `${pName} (Parent of ${targetName})` : targetName,
-            text: waNotice,
-            studentPhone: sPhone,
-            parentPhone: pPhone,
             studentName: targetName,
             parentName: pName,
+            studentPhone: sPhone,
+            parentPhone: pPhone,
+            studentRoll: targetRoll,
+            text: waNotice,
+            preferredTarget: form.target,
           });
         }
       }
@@ -261,6 +279,73 @@ export const WarningManagement = () => {
       toast.error(err.message || 'Failed to issue warning');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // ONE-CLICK: Send Message / Warning to ALL Students & Parents
+  const handleBroadcastAll = async (e) => {
+    e.preventDefault();
+    if (!broadcastForm.message.trim()) {
+      toast.error('Please enter a message description to broadcast');
+      return;
+    }
+    setBroadcasting(true);
+    try {
+      const res = await api.post('/admin/warnings/bulk', {
+        student_ids: null, // targets ALL active students!
+        type: broadcastForm.type,
+        severity: broadcastForm.severity,
+        message: broadcastForm.message,
+      });
+
+      if (res.success) {
+        toast.success(
+          res.message || `Dispatched official notices & emails to all ${students.length} students & parents in one click!`,
+          { duration: 6000 }
+        );
+        setBroadcastModalOpen(false);
+        setBroadcastForm((prev) => ({ ...prev, message: '' }));
+        fetchWarningsAndAlerts();
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to dispatch broadcast');
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
+  // ONE-CLICK: Send Warning & Email to ALL Defaulters (<75%)
+  const handleSendAllDefaulters = async () => {
+    if (lowAttendanceStudents.length === 0) {
+      toast.info('No attendance defaulters found');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Send official low attendance warnings & emails to ALL ${lowAttendanceStudents.length} students (<75%) and their parents in one click?`
+    );
+    if (!confirmed) return;
+
+    setBulkDefaultersSending(true);
+    try {
+      const res = await api.post('/admin/warnings/bulk', {
+        student_ids: lowAttendanceStudents.map((s) => s.id),
+        type: 'Low Attendance',
+        severity: 'high',
+        message: 'Official Notice: Your overall attendance is currently below the mandatory 75% threshold. Please meet your class coordinator immediately to regularize attendance.',
+      });
+
+      if (res.success) {
+        toast.success(
+          res.message || `Dispatched warnings & emails to all ${lowAttendanceStudents.length} defaulters and parents in one click!`,
+          { duration: 6000 }
+        );
+        fetchWarningsAndAlerts();
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to dispatch warnings to all defaulters');
+    } finally {
+      setBulkDefaultersSending(false);
     }
   };
 
@@ -279,13 +364,13 @@ export const WarningManagement = () => {
 
         const waText = `*Official Academic Notice - Campus Attendance Office*\n\nDear Parent/Guardian of ${student.name} (Roll No: ${student.roll_no}),\nThis is to notify you that your child's overall attendance is currently *${student.percentage}%*, which is below the mandatory 75% university requirement.\n\nPlease discuss this with your child and schedule a meeting with the class coordinator to avoid debarment from examinations.`;
         handleOpenWhatsAppModal({
-          phone: student.parent_phone || student.phone,
-          contactName: student.parent_name ? `${student.parent_name} (Parent of ${student.name})` : student.name,
-          text: waText,
+          studentName: student.name,
+          parentName: student.parent_name || 'Parent',
           studentPhone: student.phone,
           parentPhone: student.parent_phone,
-          studentName: student.name,
-          parentName: student.parent_name,
+          studentRoll: student.roll_no,
+          text: waText,
+          preferredTarget: 'both',
         });
       }
     } catch (err) {
@@ -338,30 +423,41 @@ export const WarningManagement = () => {
             <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
               Warnings & Disciplinary
             </h1>
-            <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              Dual Dispatch
+            <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+              Child & Parent Dispatch
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Manage academic notices with automated Email (Gmail) and direct WhatsApp contact
+            Send notices to both student & parent with automated Email & 1-click WhatsApp dispatch
           </p>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto w-full sm:w-auto">
           <button
             onClick={handleTestEmail}
             disabled={testingEmail}
-            className="flex-1 sm:flex-initial btn-press px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-medium inline-flex items-center justify-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs disabled:opacity-50"
+            className="btn-press px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-medium inline-flex items-center justify-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs disabled:opacity-50"
             title="Verify Gmail SMTP connection"
           >
             <Mail className="w-3.5 h-3.5 text-slate-400" />
-            <span>{testingEmail ? 'Testing...' : 'Test SMTP'}</span>
+            <span className="hidden xs:inline">{testingEmail ? 'Testing...' : 'Test SMTP'}</span>
           </button>
 
+          {/* ONE-CLICK ALL STUDENTS BUTTON */}
+          <button
+            onClick={() => setBroadcastModalOpen(true)}
+            className="btn-press px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+            title="Send notice to all students in one click"
+          >
+            <Megaphone className="w-3.5 h-3.5" />
+            <span>Send All Students (1-Click)</span>
+          </button>
+
+          {/* ISSUE SINGLE WARNING BUTTON */}
           <button
             onClick={() => setIssueModalOpen(true)}
-            className="flex-1 sm:flex-initial btn-press px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+            className="btn-press px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Issue Warning</span>
@@ -522,7 +618,7 @@ export const WarningManagement = () => {
             </div>
           ) : (
             <>
-              {/* DESKTOP / WINDOWS FLUENT DATA GRID (hidden on screens < 768px) */}
+              {/* DESKTOP / WINDOWS FLUENT DATA GRID */}
               <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50/70 dark:bg-slate-800/50 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80 dark:border-slate-800/80">
@@ -533,7 +629,7 @@ export const WarningManagement = () => {
                       <th className="py-2.5 px-3">Message</th>
                       <th className="py-2.5 px-3">Status</th>
                       <th className="py-2.5 px-3">Issued</th>
-                      <th className="py-2.5 px-3.5 text-right">Direct Actions</th>
+                      <th className="py-2.5 px-3.5 text-right">Send to Both / Direct</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -541,7 +637,7 @@ export const WarningManagement = () => {
                       const matchingStudent = students.find((s) => s.id === w.student_id);
                       const parentPhone = w.parent_phone || matchingStudent?.parent_phone || '';
                       const studentPhone = w.student_phone || matchingStudent?.phone || '';
-                      const parentName = w.parent_name || matchingStudent?.parent_name || '';
+                      const parentName = w.parent_name || matchingStudent?.parent_name || 'Parent';
                       const waText = `*Official Academic Notice - Campus Attendance Office*\n\nAttention: An official *${w.severity.toUpperCase()}* severity warning has been logged for *${w.student_name}* (Roll: ${w.student_roll_no}).\n\n*Category:* ${w.type}\n*Message:* ${w.message}\n\nPlease contact the administration immediately regarding this matter.`;
 
                       return (
@@ -594,24 +690,44 @@ export const WarningManagement = () => {
 
                           <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* 1-CLICK BOTH BUTTON */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleOpenWhatsAppModal({
+                                    studentName: w.student_name,
+                                    parentName: parentName,
+                                    studentPhone: studentPhone,
+                                    parentPhone: parentPhone,
+                                    studentRoll: w.student_roll_no,
+                                    text: waText,
+                                    preferredTarget: 'both',
+                                  })
+                                }
+                                className="btn-press px-2 py-1 rounded-md bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80 text-[10px] font-semibold transition-colors inline-flex items-center gap-1 shadow-2xs"
+                                title="Open WhatsApp modal for BOTH student & parent"
+                              >
+                                <MessageSquare className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-400" />
+                                <span>WA Both</span>
+                              </button>
+
                               {parentPhone && (
                                 <button
                                   type="button"
                                   onClick={() =>
                                     handleOpenWhatsAppModal({
-                                      phone: parentPhone,
-                                      contactName: `${parentName || 'Parent'} (${w.student_name})`,
-                                      text: waText,
-                                      studentPhone: studentPhone,
-                                      parentPhone: parentPhone,
                                       studentName: w.student_name,
                                       parentName: parentName,
+                                      studentPhone: studentPhone,
+                                      parentPhone: parentPhone,
+                                      studentRoll: w.student_roll_no,
+                                      text: waText,
+                                      preferredTarget: 'parent',
                                     })
                                   }
                                   className="btn-press px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 text-[10px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
                                   title={`WhatsApp Parent: ${parentPhone}`}
                                 >
-                                  <MessageSquare className="w-2.5 h-2.5" />
                                   <span>Parent</span>
                                 </button>
                               )}
@@ -621,41 +737,19 @@ export const WarningManagement = () => {
                                   type="button"
                                   onClick={() =>
                                     handleOpenWhatsAppModal({
-                                      phone: studentPhone,
-                                      contactName: w.student_name,
-                                      text: waText,
-                                      studentPhone: studentPhone,
-                                      parentPhone: parentPhone,
                                       studentName: w.student_name,
                                       parentName: parentName,
+                                      studentPhone: studentPhone,
+                                      parentPhone: parentPhone,
+                                      studentRoll: w.student_roll_no,
+                                      text: waText,
+                                      preferredTarget: 'student',
                                     })
                                   }
                                   className="btn-press px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
                                   title={`WhatsApp Student: ${studentPhone}`}
                                 >
-                                  <MessageSquare className="w-2.5 h-2.5" />
-                                  <span>Student</span>
-                                </button>
-                              )}
-
-                              {!parentPhone && !studentPhone && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleOpenWhatsAppModal({
-                                      phone: '',
-                                      contactName: w.student_name,
-                                      text: waText,
-                                      studentPhone: '',
-                                      parentPhone: '',
-                                      studentName: w.student_name,
-                                      parentName: '',
-                                    })
-                                  }
-                                  className="btn-press px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-medium transition-colors inline-flex items-center gap-1"
-                                >
-                                  <MessageSquare className="w-2.5 h-2.5" />
-                                  <span>WA</span>
+                                  <span>Child</span>
                                 </button>
                               )}
                             </div>
@@ -667,13 +761,13 @@ export const WarningManagement = () => {
                 </table>
               </div>
 
-              {/* MOBILE STREAMLINED CARD FEED (visible on screens < 768px, zero table horizontal scrolling) */}
+              {/* MOBILE STREAMLINED CARD FEED */}
               <div className="md:hidden space-y-2.5">
                 {filteredWarnings.map((w) => {
                   const matchingStudent = students.find((s) => s.id === w.student_id);
                   const parentPhone = w.parent_phone || matchingStudent?.parent_phone || '';
                   const studentPhone = w.student_phone || matchingStudent?.phone || '';
-                  const parentName = w.parent_name || matchingStudent?.parent_name || '';
+                  const parentName = w.parent_name || matchingStudent?.parent_name || 'Parent';
                   const waText = `*Official Academic Notice - Campus Attendance Office*\n\nAttention: An official *${w.severity.toUpperCase()}* severity warning has been logged for *${w.student_name}* (Roll: ${w.student_roll_no}).\n\n*Category:* ${w.type}\n*Message:* ${w.message}\n\nPlease contact the administration immediately regarding this matter.`;
 
                   return (
@@ -729,23 +823,41 @@ export const WarningManagement = () => {
                         </span>
 
                         <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleOpenWhatsAppModal({
+                                studentName: w.student_name,
+                                parentName: parentName,
+                                studentPhone: studentPhone,
+                                parentPhone: parentPhone,
+                                studentRoll: w.student_roll_no,
+                                text: waText,
+                                preferredTarget: 'both',
+                              })
+                            }
+                            className="btn-press px-2 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            <span>Both</span>
+                          </button>
+
                           {parentPhone && (
                             <button
                               type="button"
                               onClick={() =>
                                 handleOpenWhatsAppModal({
-                                  phone: parentPhone,
-                                  contactName: `${parentName || 'Parent'} (${w.student_name})`,
-                                  text: waText,
-                                  studentPhone: studentPhone,
-                                  parentPhone: parentPhone,
                                   studentName: w.student_name,
                                   parentName: parentName,
+                                  studentPhone: studentPhone,
+                                  parentPhone: parentPhone,
+                                  studentRoll: w.student_roll_no,
+                                  text: waText,
+                                  preferredTarget: 'parent',
                                 })
                               }
-                              className="btn-press px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
+                              className="btn-press px-2 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
                             >
-                              <MessageSquare className="w-3 h-3" />
                               <span>Parent</span>
                             </button>
                           )}
@@ -755,19 +867,18 @@ export const WarningManagement = () => {
                               type="button"
                               onClick={() =>
                                 handleOpenWhatsAppModal({
-                                  phone: studentPhone,
-                                  contactName: w.student_name,
-                                  text: waText,
-                                  studentPhone: studentPhone,
-                                  parentPhone: parentPhone,
                                   studentName: w.student_name,
                                   parentName: parentName,
+                                  studentPhone: studentPhone,
+                                  parentPhone: parentPhone,
+                                  studentRoll: w.student_roll_no,
+                                  text: waText,
+                                  preferredTarget: 'student',
                                 })
                               }
-                              className="btn-press px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-[11px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
+                              className="btn-press px-2 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-[11px] font-medium transition-colors inline-flex items-center gap-1 shadow-2xs"
                             >
-                              <MessageSquare className="w-3 h-3" />
-                              <span>Student</span>
+                              <span>Child</span>
                             </button>
                           )}
                         </div>
@@ -784,6 +895,33 @@ export const WarningManagement = () => {
       {/* Main Content: Tab 2 (Attendance Defaulters < 75%) */}
       {activeTab === 'defaulters' && (
         <div className="space-y-3">
+          {/* 1-CLICK ALL DEFAULTERS DISPATCH STRIP */}
+          {lowAttendanceStudents.length > 0 && (
+            <div className="p-3 sm:p-4 rounded-xl bg-gradient-to-r from-rose-50 to-amber-50 dark:from-rose-950/30 dark:to-amber-950/20 border border-rose-200/80 dark:border-rose-900/60 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">
+                    {lowAttendanceStudents.length} Attendance Defaulters Below 75%
+                  </p>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                  Dispatch official high-severity warnings & emails to all {lowAttendanceStudents.length} students and their parents with a single click.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSendAllDefaulters}
+                disabled={bulkDefaultersSending}
+                className="btn-press px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors shrink-0 disabled:opacity-50"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{bulkDefaultersSending ? 'Dispatching All...' : 'Send All Defaulters (1-Click)'}</span>
+              </button>
+            </div>
+          )}
+
           {lowAttendanceStudents.length === 0 ? (
             <div className="p-8 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 text-center">
               <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
@@ -797,8 +935,7 @@ export const WarningManagement = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
               {lowAttendanceStudents.map((s) => {
-                const waTextParent = `*Official Academic Notice - Campus Attendance Office*\n\nDear Parent/Guardian of ${s.name} (Roll No: ${s.roll_no}),\nThis is to notify you that your child's overall attendance is currently *${s.percentage}%*, which is below the mandatory 75% university requirement.\n\nPlease discuss this with your child and schedule a meeting with the class coordinator to avoid debarment from examinations.`;
-                const waTextStudent = `*Official Academic Notice - Campus Attendance Office*\n\nAttention ${s.name} (${s.roll_no}),\nYour overall attendance has dropped to *${s.percentage}%* (Below 75% minimum threshold).\nPlease meet your class coordinator immediately to regularize your attendance.`;
+                const waText = `*Official Academic Notice - Campus Attendance Office*\n\nDear Parent/Guardian of ${s.name} (Roll No: ${s.roll_no}),\nThis is to notify you that your child's overall attendance is currently *${s.percentage}%*, which is below the mandatory 75% university requirement.\n\nPlease discuss this with your child and schedule a meeting with the class coordinator to avoid debarment from examinations.`;
 
                 return (
                   <div
@@ -824,12 +961,12 @@ export const WarningManagement = () => {
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
                         {s.phone && (
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                            👤 {s.phone}
+                            👤 Child: {s.phone}
                           </span>
                         )}
                         {s.parent_phone && (
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                            👪 {s.parent_phone}
+                            👪 Parent: {s.parent_phone}
                           </span>
                         )}
                       </div>
@@ -841,7 +978,7 @@ export const WarningManagement = () => {
                         type="button"
                         onClick={() => handleQuickSendLowAttendance(s)}
                         className="flex-1 btn-press px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-[11px] font-medium transition-colors flex items-center justify-center gap-1 shadow-2xs"
-                        title="Issues official notice and dispatches Email + In-App alert"
+                        title="Issues official notice and dispatches Email to both child & parent"
                       >
                         <Mail className="w-3 h-3" />
                         <span>Issue & Email</span>
@@ -851,20 +988,20 @@ export const WarningManagement = () => {
                         type="button"
                         onClick={() =>
                           handleOpenWhatsAppModal({
-                            phone: s.parent_phone || s.phone,
-                            contactName: s.parent_name ? `${s.parent_name} (Parent of ${s.name})` : s.name,
-                            text: s.parent_phone ? waTextParent : waTextStudent,
+                            studentName: s.name,
+                            parentName: s.parent_name || 'Parent',
                             studentPhone: s.phone,
                             parentPhone: s.parent_phone,
-                            studentName: s.name,
-                            parentName: s.parent_name,
+                            studentRoll: s.roll_no,
+                            text: waText,
+                            preferredTarget: 'both',
                           })
                         }
                         className="btn-press px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium transition-colors flex items-center gap-1 shadow-2xs"
-                        title="Open WhatsApp modal with prefilled notice"
+                        title="Open WhatsApp sheet for both child & parent"
                       >
                         <MessageSquare className="w-3 h-3" />
-                        <span>WhatsApp</span>
+                        <span>WA Both</span>
                       </button>
                     </div>
                   </div>
@@ -875,7 +1012,7 @@ export const WarningManagement = () => {
         </div>
       )}
 
-      {/* MINIMAL ISSUE WARNING MODAL */}
+      {/* MODAL 1: ISSUE SINGLE STUDENT WARNING (With Child & Parent options) */}
       <Modal
         isOpen={issueModalOpen}
         onClose={() => setIssueModalOpen(false)}
@@ -902,67 +1039,103 @@ export const WarningManagement = () => {
             </select>
           </div>
 
-          {/* Database Phone Autofill & Toggle */}
+          {/* TARGET RECIPIENT SELECTOR (Both, Child, Parent) */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
-                WhatsApp Phone *
-              </label>
-              {form.phone && (
-                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                  ✓ Database autofilled
-                </span>
-              )}
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+              Send Message & WhatsApp To:
+            </label>
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200/80 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, target: 'both' }))}
+                className={`py-1 text-xs font-medium rounded-md transition-all btn-press ${
+                  form.target === 'both'
+                    ? 'bg-emerald-600 text-white font-semibold shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                👥 Both (Child & Parent)
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, target: 'student' }))}
+                className={`py-1 text-xs font-medium rounded-md transition-all btn-press ${
+                  form.target === 'student'
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                👤 Child (Student)
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, target: 'parent' }))}
+                className={`py-1 text-xs font-medium rounded-md transition-all btn-press ${
+                  form.target === 'parent'
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                👪 Parent Only
+              </button>
             </div>
+          </div>
 
-            <div className="relative">
-              <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                required
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="e.g. 919876543210"
-                className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
-              />
-            </div>
-
-            {/* Quick-switch pills for stored database contacts */}
-            {(() => {
-              const currentStudent = students.find((s) => String(s.id) === String(form.student_id));
-              if (!currentStudent) return null;
-              return (
-                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                  <span className="text-[10px] text-slate-400">Autofill from:</span>
-                  {currentStudent.phone && (
-                    <button
-                      type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, phone: normalizeWhatsAppPhone(currentStudent.phone) }))}
-                      className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer btn-press ${
-                        form.phone === normalizeWhatsAppPhone(currentStudent.phone)
-                          ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs'
-                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                      }`}
-                    >
-                      👤 Student: {normalizeWhatsAppPhone(currentStudent.phone)}
-                    </button>
-                  )}
-                  {currentStudent.parent_phone && (
-                    <button
-                      type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, phone: normalizeWhatsAppPhone(currentStudent.parent_phone) }))}
-                      className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer btn-press ${
-                        form.phone === normalizeWhatsAppPhone(currentStudent.parent_phone)
-                          ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs'
-                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                      }`}
-                    >
-                      👪 Parent: {normalizeWhatsAppPhone(currentStudent.parent_phone)}
-                    </button>
+          {/* DUAL CONTACT NUMBERS (Live Autofilled from Database) */}
+          <div className="space-y-2">
+            {(form.target === 'both' || form.target === 'student') && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Child (Student) WhatsApp Phone
+                  </label>
+                  {form.student_phone && (
+                    <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      ✓ Database autofilled
+                    </span>
                   )}
                 </div>
-              );
-            })()}
+                <div className="relative">
+                  <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={form.student_phone}
+                    onChange={(e) => setForm({ ...form, student_phone: e.target.value })}
+                    placeholder="e.g. 919876543210"
+                    className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                  />
+                </div>
+              </div>
+            )}
+
+            {(form.target === 'both' || form.target === 'parent') && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Parent WhatsApp Phone
+                  </label>
+                  {form.parent_phone ? (
+                    <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      ✓ Database autofilled
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-amber-500">
+                      Optional / Enter if available
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={form.parent_phone}
+                    onChange={(e) => setForm({ ...form, parent_phone: e.target.value })}
+                    placeholder="e.g. 919876543210"
+                    className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Type & Severity */}
@@ -1049,95 +1222,213 @@ export const WarningManagement = () => {
         </form>
       </Modal>
 
-      {/* MINIMAL INTERACTIVE WHATSAPP MODAL */}
+      {/* MODAL 2: 1-CLICK BROADCAST TO ALL STUDENTS & PARENTS */}
+      <Modal
+        isOpen={broadcastModalOpen}
+        onClose={() => setBroadcastModalOpen(false)}
+        title="Broadcast Message to All Students (1-Click)"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleBroadcastAll} className="space-y-3.5">
+          <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/80 text-indigo-950 dark:text-indigo-200 space-y-1">
+            <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 dark:text-indigo-100">
+              <Megaphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Instant Broadcast to All Enrolled Students</span>
+            </div>
+            <p className="text-[11px] text-indigo-800/80 dark:text-indigo-300/80">
+              This will create official notices and dispatch automated in-app alerts + SMTP emails to all <strong>{students.length} students</strong> and their parents at once.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Category
+              </label>
+              <select
+                value={broadcastForm.type}
+                onChange={(e) => setBroadcastForm({ ...broadcastForm, type: e.target.value })}
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+              >
+                <option value="Low Attendance">Low Attendance</option>
+                <option value="General Announcement">General Announcement</option>
+                <option value="Exam Alert">Exam Alert</option>
+                <option value="Discipline">Discipline</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Severity
+              </label>
+              <select
+                value={broadcastForm.severity}
+                onChange={(e) => setBroadcastForm({ ...broadcastForm, severity: e.target.value })}
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+              >
+                <option value="low">Low (Info)</option>
+                <option value="medium">Medium</option>
+                <option value="high">High (Urgent)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Broadcast Message Description *
+            </label>
+            <textarea
+              required
+              rows={4}
+              value={broadcastForm.message}
+              onChange={(e) => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
+              className="w-full p-2.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+              placeholder="Enter message for all students and parents (e.g. Mandatory attendance regularisation notice)..."
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setBroadcastModalOpen(false)}
+              className="btn-press px-3 py-1.5 rounded-lg border border-slate-200/80 dark:border-slate-700/80 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={broadcasting}
+              className="btn-press px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors shadow-2xs inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Megaphone className="w-3.5 h-3.5" />
+              <span>{broadcasting ? 'Broadcasting...' : `Send to All ${students.length} Students (1-Click)`}</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL 3: INTERACTIVE WHATSAPP DISPATCH (Both Child & Parent Supported) */}
       <Modal
         isOpen={waModalOpen}
         onClose={() => setWaModalOpen(false)}
         title="WhatsApp Dispatch Sheet"
-        maxWidth="max-w-md"
+        maxWidth="max-w-lg"
       >
         <div className="space-y-3.5">
-          {/* Target Banner */}
-          <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-xs font-medium">
-              <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>To: {waData.recipientName}</span>
-            </div>
-            <span className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 font-mono">
-              Direct API
-            </span>
+          {/* Target Tabs: Both, Child, Parent */}
+          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => setWaData((prev) => ({ ...prev, targetMode: 'both' }))}
+              className={`py-1 text-xs font-medium rounded-lg transition-all btn-press ${
+                waData.targetMode === 'both'
+                  ? 'bg-emerald-600 text-white font-semibold shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              👥 Both (Child & Parent)
+            </button>
+            <button
+              type="button"
+              onClick={() => setWaData((prev) => ({ ...prev, targetMode: 'student' }))}
+              className={`py-1 text-xs font-medium rounded-lg transition-all btn-press ${
+                waData.targetMode === 'student'
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              👤 Child (Student)
+            </button>
+            <button
+              type="button"
+              onClick={() => setWaData((prev) => ({ ...prev, targetMode: 'parent' }))}
+              className={`py-1 text-xs font-medium rounded-lg transition-all btn-press ${
+                waData.targetMode === 'parent'
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              👪 Parent Only
+            </button>
           </div>
 
-          {/* Quick Contact Toggle Pills */}
-          {(waData.studentPhone || waData.parentPhone) && (
-            <div className="space-y-1">
-              <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                Switch Contact Target:
-              </span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {waData.studentPhone && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWaData((prev) => ({
-                        ...prev,
-                        phone: prev.studentPhone,
-                        recipientName: prev.studentName ? `${prev.studentName} (Student)` : 'Student',
-                      }));
-                    }}
-                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 btn-press cursor-pointer ${
-                      waData.phone === waData.studentPhone
-                        ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs'
-                        : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                    }`}
-                  >
-                    <span>👤 Student:</span>
-                    <span className="font-mono">{waData.studentPhone}</span>
-                  </button>
-                )}
+          {/* DUAL CONTACT CARDS WITH 1-CLICK ACTIONS */}
+          <div className="space-y-2">
+            {/* CHILD (STUDENT) CONTACT CARD */}
+            {(waData.targetMode === 'both' || waData.targetMode === 'student') && (
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    👤 Child: {waData.studentName} {waData.studentRoll ? `(${waData.studentRoll})` : ''}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {waData.studentPhone ? '✓ Ready' : 'No number'}
+                  </span>
+                </div>
 
-                {waData.parentPhone && (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Phone className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={waData.studentPhone}
+                      onChange={(e) => setWaData({ ...waData, studentPhone: e.target.value })}
+                      placeholder="Student WhatsApp number (e.g. 919876543210)"
+                      className="w-full pl-8 pr-2.5 py-1 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    />
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => {
-                      setWaData((prev) => ({
-                        ...prev,
-                        phone: prev.parentPhone,
-                        recipientName: prev.parentName ? `${prev.parentName} (Parent)` : 'Parent',
-                      }));
-                    }}
-                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 btn-press cursor-pointer ${
-                      waData.phone === waData.parentPhone
-                        ? 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs'
-                        : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                    }`}
+                    onClick={() => launchWhatsAppLink(waData.studentPhone, waData.text, 'web')}
+                    className="btn-press px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium inline-flex items-center gap-1 shrink-0 shadow-2xs"
                   >
-                    <span>👪 Parent:</span>
-                    <span className="font-mono">{waData.parentPhone}</span>
+                    <MessageSquare className="w-3 h-3" />
+                    <span>Send Child</span>
                   </button>
-                )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Editable WhatsApp Phone Number */}
-          <div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-              WhatsApp Phone Number *
-            </label>
-            <div className="relative">
-              <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                value={waData.phone}
-                onChange={(e) => setWaData({ ...waData, phone: e.target.value })}
-                placeholder="919876543210"
-                className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
-              />
-            </div>
+            {/* PARENT CONTACT CARD */}
+            {(waData.targetMode === 'both' || waData.targetMode === 'parent') && (
+              <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    👪 Parent: {waData.parentName || `Parent of ${waData.studentName}`}
+                  </span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
+                    {waData.parentPhone ? '✓ Ready' : 'Enter number'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Phone className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={waData.parentPhone}
+                      onChange={(e) => setWaData({ ...waData, parentPhone: e.target.value })}
+                      placeholder="Parent WhatsApp number (e.g. 919876543210)"
+                      className="w-full pl-8 pr-2.5 py-1 text-xs font-mono rounded-lg border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => launchWhatsAppLink(waData.parentPhone, waData.text, 'web')}
+                    className="btn-press px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium inline-flex items-center gap-1 shrink-0 shadow-2xs"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    <span>Send Parent</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Notice Textarea with Copy Button */}
+          {/* Formatted Notice Preview with 1-click Copy */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -1160,26 +1451,19 @@ export const WarningManagement = () => {
             />
           </div>
 
-          {/* Action Launch Buttons (Desktop Web & Mobile/App) */}
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={() => handleLaunchWhatsApp('web')}
-              className="btn-press px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>WhatsApp Web</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleLaunchWhatsApp('app')}
-              className="btn-press px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>WhatsApp App</span>
-            </button>
-          </div>
+          {/* MASTER 1-CLICK BUTTON TO DISPATCH BOTH */}
+          {waData.targetMode === 'both' && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => handleLaunchWhatsAppBoth('web')}
+                className="w-full btn-press py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Launch WhatsApp for Both (Child & Parent)</span>
+              </button>
+            </div>
+          )}
         </div>
       </Modal>
     </div>
