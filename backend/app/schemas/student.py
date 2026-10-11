@@ -44,6 +44,9 @@ class StudentOut(StudentBase):
     branch_code: str | None = None
     section_name: str | None = None
     parent_count: int = 0
+    parent_name: str | None = None
+    parent_phone: str | None = None
+    parent_email: str | None = None
     created_at: dt.datetime
     total_classes: int = 0
     present_count: int = 0

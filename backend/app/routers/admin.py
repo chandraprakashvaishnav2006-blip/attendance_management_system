@@ -756,6 +756,7 @@ def list_students(
             "attendance_percentage": 100.0,
             "is_low_attendance": False,
         })
+        p = s.parents[0] if s.parents else None
         items.append(StudentOut(
             id=s.id,
             user_id=s.user_id,
@@ -777,6 +778,9 @@ def list_students(
             photo_path=s.photo_path,
             status=s.status,
             parent_count=len(s.parents),
+            parent_name=p.name if p else None,
+            parent_phone=p.phone if p else None,
+            parent_email=p.user.email if (p and p.user) else None,
             created_at=s.created_at,
             total_classes=s_att["total_classes"],
             present_count=s_att["present_count"],

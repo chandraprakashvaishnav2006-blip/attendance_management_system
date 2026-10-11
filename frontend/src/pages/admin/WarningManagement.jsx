@@ -11,7 +11,8 @@ import {
   MessageSquare,
   Phone,
   ExternalLink,
-  Copy
+  Copy,
+  User
 } from 'lucide-react';
 import api from '../../api/axios';
 import { Badge } from '../../components/common/Badge';
@@ -43,11 +44,16 @@ export const WarningManagement = () => {
     recipientName: '',
     phone: '',
     text: '',
+    studentPhone: '',
+    parentPhone: '',
+    studentName: '',
+    parentName: '',
   });
 
   const normalizeWhatsAppPhone = (rawPhone) => {
     if (!rawPhone) return '';
-    let digits = rawPhone.replace(/[^0-9]/g, '');
+    let digits = String(rawPhone).replace(/[^0-9]/g, '');
+    if (!digits) return '';
     // If it's a standard 10-digit mobile number, prepend 91 (India)
     if (digits.length === 10) {
       return '91' + digits;
@@ -93,12 +99,45 @@ export const WarningManagement = () => {
     fetchWarningsAndAlerts();
   }, []);
 
-  const handleOpenWhatsAppModal = (phone, contactName, text) => {
-    const clean = normalizeWhatsAppPhone(phone);
+  const handleOpenWhatsAppModal = (optionsOrPhone, contactName, text) => {
+    let phone = '';
+    let recipientName = '';
+    let waText = '';
+    let studentPhone = '';
+    let parentPhone = '';
+    let studentName = '';
+    let parentName = '';
+
+    if (typeof optionsOrPhone === 'object' && optionsOrPhone !== null) {
+      phone = optionsOrPhone.phone || '';
+      recipientName = optionsOrPhone.contactName || '';
+      waText = optionsOrPhone.text || '';
+      studentPhone = optionsOrPhone.studentPhone || '';
+      parentPhone = optionsOrPhone.parentPhone || '';
+      studentName = optionsOrPhone.studentName || '';
+      parentName = optionsOrPhone.parentName || '';
+    } else {
+      phone = optionsOrPhone || '';
+      recipientName = contactName || '';
+      waText = text || '';
+    }
+
+    // Auto-select phone: prefer phone passed, then parentPhone, then studentPhone
+    const chosenRawPhone = phone || parentPhone || studentPhone || '';
+    const clean = normalizeWhatsAppPhone(chosenRawPhone);
+    const cleanStudentPhone = normalizeWhatsAppPhone(studentPhone);
+    const cleanParentPhone = normalizeWhatsAppPhone(parentPhone);
+
+    const resolvedRecipient = recipientName || (clean && clean === cleanParentPhone ? (parentName ? `${parentName} (Parent)` : 'Parent') : (studentName || 'Student Contact'));
+
     setWaData({
-      recipientName: contactName || 'Student Contact',
+      recipientName: resolvedRecipient,
       phone: clean,
-      text: text || '',
+      text: waText,
+      studentPhone: cleanStudentPhone,
+      parentPhone: cleanParentPhone,
+      studentName: studentName,
+      parentName: parentName,
     });
     setWaModalOpen(true);
   };
@@ -153,9 +192,11 @@ export const WarningManagement = () => {
         setIssueModalOpen(false);
 
         const targetStudent = students.find((s) => String(s.id) === String(form.student_id));
-        const targetRoll = targetStudent?.roll_no || '';
-        const targetName = targetStudent?.name || 'Student';
-        const targetPhone = targetStudent?.phone || '';
+        const targetRoll = res.data?.student_roll_no || targetStudent?.roll_no || '';
+        const targetName = res.data?.student_name || targetStudent?.name || 'Student';
+        const sPhone = res.data?.student_phone || targetStudent?.phone || '';
+        const pPhone = res.data?.parent_phone || targetStudent?.parent_phone || '';
+        const pName = res.data?.parent_name || targetStudent?.parent_name || 'Parent';
 
         const waNotice = `*Official Academic Notice - Campus Attendance Office*\n\nAttention: An official *${form.severity.toUpperCase()}* severity warning has been logged for *${targetName}* (Roll: ${targetRoll}).\n\n*Category:* ${form.type}\n*Notice:* ${form.message}\n\nPlease contact the administration immediately regarding this matter.`;
 
@@ -163,7 +204,15 @@ export const WarningManagement = () => {
         fetchWarningsAndAlerts();
 
         if (openWhatsAppAfter) {
-          handleOpenWhatsAppModal(targetPhone, targetName, waNotice);
+          handleOpenWhatsAppModal({
+            phone: pPhone || sPhone,
+            contactName: pPhone ? `${pName} (Parent of ${targetName})` : targetName,
+            text: waNotice,
+            studentPhone: sPhone,
+            parentPhone: pPhone,
+            studentName: targetName,
+            parentName: pName,
+          });
         }
       }
     } catch (err) {
@@ -187,7 +236,15 @@ export const WarningManagement = () => {
         fetchWarningsAndAlerts();
 
         const waText = `*Official Academic Notice - Campus Attendance Office*\n\nDear Parent/Guardian of ${student.name} (Roll No: ${student.roll_no}),\nThis is to notify you that your child's overall attendance is currently *${student.percentage}%*, which is below the mandatory 75% university requirement.\n\nPlease discuss this with your child and schedule a meeting with the class coordinator to avoid debarment from examinations.`;
-        handleOpenWhatsAppModal(student.parent_phone || student.phone, `${student.name} (Parent)`, waText);
+        handleOpenWhatsAppModal({
+          phone: student.parent_phone || student.phone,
+          contactName: student.parent_name ? `${student.parent_name} (Parent of ${student.name})` : student.name,
+          text: waText,
+          studentPhone: student.phone,
+          parentPhone: student.parent_phone,
+          studentName: student.name,
+          parentName: student.parent_name,
+        });
       }
     } catch (err) {
       toast.error(err.message || 'Failed to send warning');
@@ -300,11 +357,15 @@ export const WarningManagement = () => {
                     <button
                       type="button"
                       onClick={() =>
-                        handleOpenWhatsAppModal(
-                          s.parent_phone || s.phone,
-                          s.parent_name ? `${s.parent_name} (Parent of ${s.name})` : s.name,
-                          s.parent_phone ? waTextParent : waTextStudent
-                        )
+                        handleOpenWhatsAppModal({
+                          phone: s.parent_phone || s.phone,
+                          contactName: s.parent_name ? `${s.parent_name} (Parent of ${s.name})` : s.name,
+                          text: s.parent_phone ? waTextParent : waTextStudent,
+                          studentPhone: s.phone,
+                          parentPhone: s.parent_phone,
+                          studentName: s.name,
+                          parentName: s.parent_name,
+                        })
                       }
                       className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium transition-colors flex items-center gap-1 shadow-2xs"
                       title="Open WhatsApp with pre-filled warning text"
@@ -359,8 +420,10 @@ export const WarningManagement = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {warnings.map((w) => {
-                  const parentPhone = w.parent_phone;
-                  const studentPhone = w.student_phone;
+                  const matchingStudent = students.find((s) => s.id === w.student_id);
+                  const parentPhone = w.parent_phone || matchingStudent?.parent_phone || '';
+                  const studentPhone = w.student_phone || matchingStudent?.phone || '';
+                  const parentName = w.parent_name || matchingStudent?.parent_name || '';
                   const waText = `*Official Academic Notice - Campus Attendance Office*\n\nAttention: An official *${w.severity.toUpperCase()}* severity warning has been logged for *${w.student_name}* (Roll: ${w.student_roll_no}).\n\n*Category:* ${w.type}\n*Message:* ${w.message}\n\nPlease contact the administration immediately regarding this matter.`;
 
                   return (
@@ -427,7 +490,17 @@ export const WarningManagement = () => {
                           {parentPhone && (
                             <button
                               type="button"
-                              onClick={() => handleOpenWhatsAppModal(parentPhone, `${w.parent_name || 'Parent'} (${w.student_name})`, waText)}
+                              onClick={() =>
+                                handleOpenWhatsAppModal({
+                                  phone: parentPhone,
+                                  contactName: `${parentName || 'Parent'} (${w.student_name})`,
+                                  text: waText,
+                                  studentPhone: studentPhone,
+                                  parentPhone: parentPhone,
+                                  studentName: w.student_name,
+                                  parentName: parentName,
+                                })
+                              }
                               className="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 text-[10px] font-medium transition-colors flex items-center gap-1"
                               title={`Send WhatsApp to Parent (${parentPhone})`}
                             >
@@ -438,12 +511,43 @@ export const WarningManagement = () => {
                           {studentPhone && (
                             <button
                               type="button"
-                              onClick={() => handleOpenWhatsAppModal(studentPhone, w.student_name, waText)}
+                              onClick={() =>
+                                handleOpenWhatsAppModal({
+                                  phone: studentPhone,
+                                  contactName: w.student_name,
+                                  text: waText,
+                                  studentPhone: studentPhone,
+                                  parentPhone: parentPhone,
+                                  studentName: w.student_name,
+                                  parentName: parentName,
+                                })
+                              }
                               className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-medium transition-colors flex items-center gap-1"
                               title={`Send WhatsApp to Student (${studentPhone})`}
                             >
                               <MessageSquare className="w-2.5 h-2.5" />
                               <span>WA Student</span>
+                            </button>
+                          )}
+                          {!parentPhone && !studentPhone && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenWhatsAppModal({
+                                  phone: '',
+                                  contactName: w.student_name,
+                                  text: waText,
+                                  studentPhone: '',
+                                  parentPhone: '',
+                                  studentName: w.student_name,
+                                  parentName: '',
+                                })
+                              }
+                              className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-medium transition-colors flex items-center gap-1"
+                              title="Open WhatsApp dispatch"
+                            >
+                              <MessageSquare className="w-2.5 h-2.5" />
+                              <span>WhatsApp</span>
                             </button>
                           )}
                         </div>
@@ -491,6 +595,47 @@ export const WarningManagement = () => {
                 </option>
               ))}
             </select>
+            {(() => {
+              const currentStudent = students.find((s) => String(s.id) === String(form.student_id));
+              if (!currentStudent) return null;
+              return (
+                <div className="mt-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    <span>Student Contact Preview</span>
+                    <span className="font-mono text-slate-600 dark:text-slate-300">Roll: {currentStudent.roll_no}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                      <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>Student:</span>
+                      <span className="font-mono font-medium text-slate-900 dark:text-white">
+                        {currentStudent.phone || <span className="text-slate-400 italic font-sans">Not set</span>}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                      <User className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>Parent:</span>
+                      <span className="font-medium text-slate-900 dark:text-white truncate">
+                        {currentStudent.parent_phone ? (
+                          <span className="font-mono">{currentStudent.parent_phone}</span>
+                        ) : (
+                          <span className="text-slate-400 italic">Not set</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  {(currentStudent.parent_phone || currentStudent.phone) ? (
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium pt-0.5">
+                      ✓ Mobile number available — will autofill WhatsApp dispatch
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 pt-0.5">
+                      ⚠️ No mobile number in record — you can type it manually when WhatsApp opens
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -592,9 +737,70 @@ export const WarningManagement = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-              WhatsApp Mobile Number (e.g. 919876543210) *
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                WhatsApp Mobile Number (e.g. 919876543210) *
+              </label>
+              {waData.phone && (
+                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded flex items-center gap-1">
+                  ✓ Autofilled from student info
+                </span>
+              )}
+            </div>
+
+            {/* Quick-select pills for Parent & Student */}
+            {(waData.parentPhone || waData.studentPhone) && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">Quick Select:</span>
+                {waData.parentPhone && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaData((prev) => ({
+                        ...prev,
+                        phone: prev.parentPhone,
+                        recipientName: prev.parentName ? `${prev.parentName} (Parent)` : 'Parent',
+                      }));
+                    }}
+                    className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                      waData.phone === waData.parentPhone
+                        ? 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:border-emerald-500 font-semibold shadow-2xs'
+                        : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                    }`}
+                  >
+                    <span>Parent:</span>
+                    <span className="font-mono">{waData.parentPhone}</span>
+                  </button>
+                )}
+                {waData.studentPhone && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaData((prev) => ({
+                        ...prev,
+                        phone: prev.studentPhone,
+                        recipientName: prev.studentName ? `${prev.studentName} (Student)` : 'Student',
+                      }));
+                    }}
+                    className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                      waData.phone === waData.studentPhone
+                        ? 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:border-emerald-500 font-semibold shadow-2xs'
+                        : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                    }`}
+                  >
+                    <span>Student:</span>
+                    <span className="font-mono">{waData.studentPhone}</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {!waData.parentPhone && !waData.studentPhone && !waData.phone && (
+              <div className="mb-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-700 dark:text-amber-300">
+                Notice: No phone number was found in this student profile. Please enter the number manually below.
+              </div>
+            )}
+
             <div className="relative">
               <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
               <input
