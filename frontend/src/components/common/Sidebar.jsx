@@ -52,17 +52,15 @@ export const Sidebar = ({ isOpen, onClose }) => {
   ];
 
   let currentNav = adminNav;
-  let accentClass = 'text-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/40 dark:text-indigo-400';
-  let roleBrand = { title: 'EduTrack Admin', badge: 'Admin Portal', color: 'bg-indigo-600' };
+  let accentClass = 'text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-white font-semibold';
+  let roleBrand = { title: 'EduTrack', badge: 'Admin' };
 
   if (role === 'STUDENT') {
     currentNav = studentNav;
-    accentClass = 'text-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/40 dark:text-emerald-400';
-    roleBrand = { title: 'Student Portal', badge: 'Student View', color: 'bg-emerald-600' };
+    roleBrand = { title: 'EduTrack', badge: 'Student' };
   } else if (role === 'PARENT') {
     currentNav = parentNav;
-    accentClass = 'text-amber-600 bg-amber-50/80 dark:bg-amber-950/40 dark:text-amber-400';
-    roleBrand = { title: 'Parent Portal', badge: 'Family View', color: 'bg-amber-600' };
+    roleBrand = { title: 'EduTrack', badge: 'Parent' };
   }
 
   return (
@@ -71,27 +69,27 @@ export const Sidebar = ({ isOpen, onClose }) => {
       {isOpen && (
         <div
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-xs lg:hidden transition-opacity"
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand Header */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl ${roleBrand.color} text-white flex items-center justify-center font-extrabold text-lg shadow-md`}>
+        <div className="flex items-center justify-between h-14 px-5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center font-bold text-xs tracking-tight shadow-xs">
               E
             </div>
-            <div>
-              <h1 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                 {roleBrand.title}
-              </h1>
-              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">
                 {roleBrand.badge}
               </span>
             </div>
@@ -100,14 +98,14 @@ export const Sidebar = ({ isOpen, onClose }) => {
             onClick={onClose}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 lg:hidden"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Navigation Menu */}
-        <div className="flex-1 px-4 py-6 overflow-y-auto space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-3 pb-2">
-            Main Navigation
+        <div className="flex-1 px-3 py-4 overflow-y-auto space-y-1">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-3 pb-1">
+            Menu
           </div>
           {currentNav.map((item) => {
             const Icon = item.icon;
@@ -119,14 +117,14 @@ export const Sidebar = ({ isOpen, onClose }) => {
                   if (window.innerWidth < 1024) onClose();
                 }}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
                     isActive
-                      ? `${accentClass} shadow-sm`
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                      ? `${accentClass} shadow-2xs`
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50 font-medium'
                   }`
                 }
               >
-                <Icon className="w-4 h-4 flex-shrink-0" />
+                <Icon className="w-4 h-4 flex-shrink-0 opacity-80" />
                 <span>{item.name}</span>
               </NavLink>
             );
@@ -134,10 +132,13 @@ export const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         {/* Footer info */}
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800/80">
-          <div className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-            <span>EduTrack Pro v1.0</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800/60">
+          <div className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-between">
+            <span>EduTrack Pro</span>
+            <span className="flex items-center gap-1.5 text-[10px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Online
+            </span>
           </div>
         </div>
       </aside>

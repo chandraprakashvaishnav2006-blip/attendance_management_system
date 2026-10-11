@@ -17,17 +17,17 @@ export const NotFoundPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 text-center">
-      <div className="space-y-4 max-w-md">
-        <h1 className="text-7xl font-black text-indigo-600 dark:text-indigo-400">404</h1>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Page Not Found</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+      <div className="space-y-4 max-w-sm">
+        <h1 className="text-6xl font-extralight tracking-tight text-slate-400 dark:text-slate-600 font-mono">404</h1>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Page Not Found</h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
           The requested page could not be located or you may not have authorization to view this resource.
         </p>
         <button
           onClick={handleGoHome}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium transition-colors shadow-2xs"
         >
-          <Home className="w-4 h-4" />
+          <Home className="w-3.5 h-3.5" />
           Return to Dashboard
         </button>
       </div>

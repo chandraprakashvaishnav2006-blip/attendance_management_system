@@ -5,8 +5,7 @@ import { RoleBanner } from './RoleBanner';
 import { PasswordForm } from './PasswordForm';
 import { QuickFillBar } from './QuickFillBar';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
-import studentMascotImg from '../../assets/images/student_mascot_avatar_1790781142146.jpg';
-import { Sparkles, Shield, GraduationCap, Users } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export const UnifiedLoginCard = ({
   onPasswordLogin,
@@ -48,7 +47,7 @@ export const UnifiedLoginCard = ({
   };
 
   return (
-    <div className="w-full max-w-[440px] mx-auto relative">
+    <div className="w-full max-w-[420px] mx-auto relative">
       {/* Forgot Password Modal */}
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
@@ -57,64 +56,18 @@ export const UnifiedLoginCard = ({
       />
 
       {/* Main Container Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-slate-200/70 dark:shadow-slate-950/50 border border-slate-100 dark:border-slate-800 overflow-hidden relative transition-all">
-        {/* Top Hero Arch */}
-        <div
-          className={`relative pt-6 pb-4 px-6 text-center overflow-hidden transition-colors duration-500 ${
-            selectedRole === 'admin'
-              ? 'bg-gradient-to-b from-indigo-600 via-indigo-500 to-indigo-600'
-              : selectedRole === 'student'
-              ? 'bg-gradient-to-b from-sky-500 via-sky-400 to-sky-500'
-              : 'bg-gradient-to-b from-teal-600 via-teal-500 to-teal-600'
-          }`}
-        >
-          {/* Subtle geometric light circles */}
-          <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-xl pointer-events-none" />
-          <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-white/15 blur-lg pointer-events-none" />
-
-          {/* EduTrack Pro Header Lockup */}
-          <div className="relative z-10 flex flex-col items-center">
-            {/* Top Brand Pill */}
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3.5 py-1 rounded-full text-white text-xs font-semibold shadow-inner mb-3 border border-white/25">
-              <span className="w-5 h-5 rounded-md bg-white text-indigo-700 flex items-center justify-center font-black text-xs shadow-xs">
-                E
-              </span>
-              <span>EduTrack Pro</span>
-              <span className="w-1 h-1 rounded-full bg-white/70" />
-              <span className="text-white/90 capitalize">{selectedRole}</span>
-            </div>
-
-            {/* Mascot Character Avatar */}
-            <div className="relative group my-1">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1 bg-white/30 backdrop-blur-sm shadow-lg mx-auto flex items-center justify-center relative">
-                <img
-                  src={studentMascotImg}
-                  alt="EduTrack Mascot"
-                  className="w-full h-full object-cover rounded-full bg-white shadow-inner transition-transform duration-300 group-hover:scale-105"
-                />
-                <span className="absolute bottom-1 right-1 p-1.5 rounded-full bg-white shadow-md text-slate-800">
-                  {selectedRole === 'admin' && <Shield className="w-3.5 h-3.5 text-indigo-600" />}
-                  {selectedRole === 'student' && <GraduationCap className="w-3.5 h-3.5 text-sky-600" />}
-                  {selectedRole === 'parent' && <Users className="w-3.5 h-3.5 text-teal-600" />}
-                </span>
-              </div>
-            </div>
-
-            {/* Welcome Title */}
-            <h1 className="text-white font-bold text-lg sm:text-xl tracking-tight mt-1 drop-shadow-xs">
-              Sign In to Your Account
-            </h1>
-            <p className="text-white/80 text-xs mt-0.5 max-w-xs mx-auto">
-              {selectedRole === 'admin'
-                ? 'Enterprise Administration & Analytics Console'
-                : selectedRole === 'student'
-                ? 'Smart Learning, Attendance & Grades Portal'
-                : 'Guardian Portal for Student Tracking & Fees'}
-            </p>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800 overflow-hidden relative transition-all">
+        {/* Sleek Minimal Header */}
+        <div className="px-6 pt-6 pb-2 text-center">
+          <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 mx-auto flex items-center justify-center font-bold text-sm shadow-xs mb-3">
+            E
           </div>
-
-          {/* Smooth curved bottom wave cut-out transitioning to card surface */}
-          <div className="absolute -bottom-1 left-0 right-0 h-4 bg-white dark:bg-slate-900 rounded-t-3xl" />
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Sign In
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Select your role to access your dashboard
+          </p>
         </div>
 
         {/* Card Body Content */}

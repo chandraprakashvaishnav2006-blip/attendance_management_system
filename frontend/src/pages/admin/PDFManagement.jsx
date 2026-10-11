@@ -401,12 +401,12 @@ export const PDFManagement = () => {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <Folder className="w-7 h-7 text-indigo-600" />
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Folder className="w-5 h-5 text-slate-600 dark:text-slate-400" />
             Learning Materials & Document Repository
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Upload and organize any documents, study notes, spreadsheets, presentations, and entire folders with tracking
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Upload and organize study notes, spreadsheets, presentations, and folders
           </p>
         </div>
 
@@ -415,24 +415,24 @@ export const PDFManagement = () => {
             setUploadMode('files');
             setUploadModalOpen(true);
           }}
-          className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
         >
-          <Upload className="w-4 h-4" />
+          <Upload className="w-3.5 h-3.5" />
           Upload Documents / Folder
         </button>
       </div>
 
       {/* Search & Filters */}
       <div className="space-y-3">
-        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
+        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
             <input
               type="text"
               placeholder="Search by title, subject, or class..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
             />
           </div>
           <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
@@ -441,14 +441,14 @@ export const PDFManagement = () => {
         </div>
 
         {/* Category Pills */}
-        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs">
           <button
             type="button"
             onClick={() => setCategoryFilter('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
               categoryFilter === 'all'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             All Resources ({documents.length})
@@ -460,10 +460,10 @@ export const PDFManagement = () => {
                 key={cat}
                 type="button"
                 onClick={() => setCategoryFilter(cat)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                   categoryFilter === cat
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {cat} ({count})
@@ -483,19 +483,19 @@ export const PDFManagement = () => {
           description="Click 'Upload Documents / Folder' above to add documents, presentations, or directory folders."
         />
       ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
+              <thead className="bg-slate-50/70 dark:bg-slate-800/40 text-slate-500 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-200/80 dark:border-slate-800/80">
                 <tr>
-                  <th className="py-3.5 px-4">Document / Resource Title</th>
-                  <th className="py-3.5 px-4">Type</th>
-                  <th className="py-3.5 px-4">Category</th>
-                  <th className="py-3.5 px-4">Class & Subject</th>
-                  <th className="py-3.5 px-4">Size</th>
-                  <th className="py-3.5 px-4">Downloads</th>
-                  <th className="py-3.5 px-4">Uploaded</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4">Document / Resource Title</th>
+                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Class & Subject</th>
+                  <th className="py-3 px-4">Size</th>
+                  <th className="py-3 px-4">Downloads</th>
+                  <th className="py-3 px-4">Uploaded</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">

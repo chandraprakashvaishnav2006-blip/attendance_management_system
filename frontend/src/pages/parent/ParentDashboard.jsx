@@ -62,34 +62,34 @@ export const ParentDashboard = () => {
   const latestExam = data?.latest_exam_result;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300">
       {/* Top Welcome Card with Child Switcher if multiple */}
-      <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white shadow-xl shadow-amber-950/20 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider">
-            <Baby className="w-3.5 h-3.5" />
+      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+            <Baby className="w-3.5 h-3.5 text-slate-500" />
             <span>Parent & Guardian Oversight</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             Child Overview: {activeChild?.name || 'Student'}
           </h1>
-          <p className="text-xs text-white/80 max-w-xl">
-            Roll Number: <span className="font-mono font-bold text-white">{activeChild?.roll_no}</span> • {activeChild?.class_name || 'Class'} • Section {activeChild?.section}
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Roll Number: <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{activeChild?.roll_no}</span> • {activeChild?.class_name || 'Class'} • Section {activeChild?.section}
           </p>
         </div>
 
         {/* Multi-child dropdown switcher */}
         {user?.students?.length > 1 && (
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/20">
-            <span className="text-xs font-semibold px-2 text-white/80">Viewing Child:</span>
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+            <span className="text-xs font-medium px-2 text-slate-500 dark:text-slate-400">Child:</span>
             {user.students.map((child) => (
               <button
                 key={child.id}
                 onClick={() => switchActiveChild(child)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   activeChild?.id === child.id
-                    ? 'bg-white text-amber-900 shadow-md'
-                    : 'text-white/90 hover:bg-white/20'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs border border-slate-200/50 dark:border-slate-600/50'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {child.name}
@@ -100,21 +100,21 @@ export const ParentDashboard = () => {
       </div>
 
       {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Child Attendance Card */}
         <div
           onClick={() => navigate('/parent/attendance')}
-          className="cursor-pointer p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-amber-500 transition-all flex flex-col justify-between"
+          className="group cursor-pointer p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Child Attendance</span>
-            <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
-              <CalendarCheck className="w-5 h-5" />
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Child Attendance</span>
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+              <CalendarCheck className="w-4 h-4" />
             </div>
           </div>
           <div className="my-3">
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">
+              <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {attSummary?.overall_percentage ?? 100}%
               </span>
               <Badge variant={attSummary?.status_color || 'green'} size="sm">
@@ -125,11 +125,11 @@ export const ParentDashboard = () => {
                   : 'Action Needed'}
               </Badge>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {attSummary?.present_count || 0} of {attSummary?.total_classes || 0} classes attended
             </p>
           </div>
-          <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+          <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white flex items-center gap-1 transition-colors">
             View attendance calendar <ArrowRight className="w-3.5 h-3.5" />
           </span>
         </div>
@@ -137,17 +137,17 @@ export const ParentDashboard = () => {
         {/* Latest Exam Result Card */}
         <div
           onClick={() => navigate('/parent/marks')}
-          className="cursor-pointer p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-indigo-500 transition-all flex flex-col justify-between"
+          className="group cursor-pointer p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Latest Examination</span>
-            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
-              <Award className="w-5 h-5" />
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Latest Examination</span>
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+              <Award className="w-4 h-4" />
             </div>
           </div>
           <div className="my-3">
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">
+              <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {latestExam ? `${latestExam.overall_percentage}%` : 'N/A'}
               </span>
               {latestExam && (
@@ -156,11 +156,11 @@ export const ParentDashboard = () => {
                 </Badge>
               )}
             </div>
-            <p className="text-[11px] text-slate-400 mt-1 truncate">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
               {latestExam?.exam_name || 'No published examinations'}
             </p>
           </div>
-          <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+          <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white flex items-center gap-1 transition-colors">
             View academic report <ArrowRight className="w-3.5 h-3.5" />
           </span>
         </div>
@@ -168,23 +168,23 @@ export const ParentDashboard = () => {
         {/* Academic Analytics / Class Standing */}
         <div
           onClick={() => navigate('/parent/analytics')}
-          className="cursor-pointer p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-emerald-500 transition-all flex flex-col justify-between"
+          className="group cursor-pointer p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Class Standing</span>
-            <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
-              <Award className="w-5 h-5" />
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Class Standing</span>
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+              <Award className="w-4 h-4" />
             </div>
           </div>
           <div className="my-3">
-            <span className="text-3xl font-black text-slate-900 dark:text-white">
+            <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               {latestExam?.rank ? `#${latestExam.rank}` : '—'}
             </span>
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               Class Rank out of {latestExam?.total_students_in_class || 20}
             </p>
           </div>
-          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+          <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white flex items-center gap-1 transition-colors">
             Compare with class average <ArrowRight className="w-3.5 h-3.5" />
           </span>
         </div>
@@ -192,21 +192,21 @@ export const ParentDashboard = () => {
         {/* Disciplinary Warnings / Absence Alerts */}
         <div
           onClick={() => navigate('/parent/alerts')}
-          className="cursor-pointer p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-rose-500 transition-all flex flex-col justify-between"
+          className="group cursor-pointer p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Alerts & Warnings</span>
-            <div className="p-2.5 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
-              <ShieldAlert className="w-5 h-5" />
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Alerts & Warnings</span>
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+              <ShieldAlert className="w-4 h-4" />
             </div>
           </div>
           <div className="my-3">
-            <span className="text-3xl font-black text-slate-900 dark:text-white">
+            <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               {data?.warnings?.length || 0}
             </span>
-            <p className="text-[11px] text-slate-400 mt-1">Active alerts for child</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Active alerts for child</p>
           </div>
-          <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+          <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white flex items-center gap-1 transition-colors">
             View disciplinary record <ArrowRight className="w-3.5 h-3.5" />
           </span>
         </div>
@@ -215,15 +215,15 @@ export const ParentDashboard = () => {
       {/* Two-Column Section: Subject Attendance & Institutional Notices */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Child Subject Attendance Breakdown */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <CalendarCheck className="w-4 h-4 text-amber-500" />
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-5 shadow-2xs">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <CalendarCheck className="w-3.5 h-3.5 text-slate-500" />
               Subject-Wise Attendance Overview
             </h3>
             <button
               onClick={() => navigate('/parent/attendance')}
-              className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+              className="text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:underline transition-colors"
             >
               Full Calendar
             </button>
@@ -267,10 +267,10 @@ export const ParentDashboard = () => {
         </div>
 
         {/* Notices targeted at parents */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Bell className="w-4 h-4 text-indigo-500" />
+            <h3 className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Bell className="w-3.5 h-3.5 text-slate-500" />
               Notices & Circulars
             </h3>
           </div>

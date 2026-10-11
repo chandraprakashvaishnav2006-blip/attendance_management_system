@@ -26,32 +26,6 @@ export const Navbar = ({ onToggleSidebar }) => {
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  // Global Frontend Zoom / Vision State
-  const [zoomLevel, setZoomLevel] = useState(() => {
-    return localStorage.getItem('ui_zoom') || '1.1';
-  });
-
-  useEffect(() => {
-    document.documentElement.style.zoom = zoomLevel;
-    localStorage.setItem('ui_zoom', zoomLevel);
-  }, [zoomLevel]);
-
-  const handleZoomCycle = () => {
-    const nextZoom =
-      zoomLevel === '1.0'
-        ? '1.1'
-        : zoomLevel === '1.1'
-        ? '1.2'
-        : zoomLevel === '1.2'
-        ? '1.25'
-        : '1.0';
-    setZoomLevel(nextZoom);
-    toast.success(`Zoom set to ${Math.round(parseFloat(nextZoom) * 100)}%`, {
-      id: 'zoom-toast',
-      duration: 1500,
-    });
-  };
-
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -88,18 +62,18 @@ export const Navbar = ({ onToggleSidebar }) => {
   };
 
   const getRoleIcon = () => {
-    if (role === 'ADMIN') return <Shield className="w-4 h-4 text-indigo-500" />;
-    if (role === 'STUDENT') return <GraduationCap className="w-4 h-4 text-emerald-500" />;
-    return <Users className="w-4 h-4 text-amber-500" />;
+    if (role === 'ADMIN') return <Shield className="w-3.5 h-3.5 text-indigo-500" />;
+    if (role === 'STUDENT') return <GraduationCap className="w-3.5 h-3.5 text-emerald-500" />;
+    return <Users className="w-3.5 h-3.5 text-amber-500" />;
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
+    <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 md:px-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
       {/* Left side: Mobile Toggle & Title */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <button
           onClick={onToggleSidebar}
-          className="p-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 lg:hidden transition-colors"
+          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 lg:hidden transition-colors"
           aria-label="Toggle Navigation"
         >
           <Menu className="w-5 h-5" />
@@ -110,36 +84,36 @@ export const Navbar = ({ onToggleSidebar }) => {
           <div className="relative">
             <button
               onClick={() => setShowChildMenu(!showChildMenu)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/50 border border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 text-xs font-semibold transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-medium transition-colors"
             >
-              <Baby className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <Baby className="w-3.5 h-3.5 text-amber-500" />
               <span>
-                Child: <span className="underline decoration-amber-400 font-bold">{activeChild?.name || 'Select Child'}</span>
+                Child: <span className="font-semibold">{activeChild?.name || 'Select Child'}</span>
               </span>
-              <ChevronDown className="w-3.5 h-3.5 ml-1 text-amber-600" />
+              <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
             {showChildMenu && (
               <div
-                className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in"
+                className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 py-1.5 z-50 animate-in fade-in"
                 onClick={() => setShowChildMenu(false)}
               >
-                <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
                   Switch Active Child
                 </div>
                 {user.students.map((child) => (
                   <button
                     key={child.id}
                     onClick={() => switchActiveChild(child)}
-                    className={`w-full text-left px-3.5 py-2.5 text-xs flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
                       activeChild?.id === child.id
-                        ? 'font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/30'
+                        ? 'font-semibold text-amber-600 dark:text-amber-400 bg-amber-50/40 dark:bg-amber-950/20'
                         : 'text-slate-700 dark:text-slate-300'
                     }`}
                   >
                     <div>
-                      <p className="font-semibold">{child.name}</p>
-                      <p className="text-[11px] text-slate-400 font-normal">
+                      <p className="font-medium">{child.name}</p>
+                      <p className="text-[10px] text-slate-400">
                         Roll: {child.roll_no} • {child.class_name || 'Class A'}
                       </p>
                     </div>
@@ -155,25 +129,14 @@ export const Navbar = ({ onToggleSidebar }) => {
       </div>
 
       {/* Right side: Actions, Theme, Notifications, Profile */}
-      <div className="flex items-center gap-2 md:gap-3">
-        {/* UI Zoom / Better Vision Control */}
-        <button
-          onClick={handleZoomCycle}
-          aria-label="Adjust UI Zoom"
-          title={`Click to cycle UI zoom (${Math.round(parseFloat(zoomLevel) * 100)}% active)`}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/80 transition-all cursor-pointer shadow-sm"
-        >
-          <ZoomIn className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-          <span className="font-mono text-[11px] font-bold">{Math.round(parseFloat(zoomLevel) * 100)}%</span>
-        </button>
-
+      <div className="flex items-center gap-1.5 md:gap-2">
         {/* Dark/Light Mode Toggle */}
         <button
           onClick={toggleTheme}
           aria-label="Toggle Theme"
-          className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
-          {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
+          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
         </button>
 
         {/* Notifications (For Student & Parent) */}
@@ -181,14 +144,12 @@ export const Navbar = ({ onToggleSidebar }) => {
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="relative p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800 transition-colors"
               aria-label="Notifications"
             >
-              <Bell className="w-5 h-5" />
+              <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900" />
               )}
             </button>
 

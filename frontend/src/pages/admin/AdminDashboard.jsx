@@ -125,65 +125,55 @@ export const AdminDashboard = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Top Banner & Quick Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
             Administrator Overview
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Real-time analytics, institutional records, and alert management
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Real-time analytics, records, and alert management
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => navigate('/admin/attendance')}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all"
+            className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-semibold text-xs flex items-center gap-2 transition-colors shadow-2xs"
           >
-            <CalendarCheck className="w-4 h-4" />
+            <CalendarCheck className="w-3.5 h-3.5" />
             Mark Attendance
           </button>
           <button
             onClick={() => navigate('/admin/students')}
-            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs flex items-center gap-2 transition-all"
+            className="px-3.5 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-2 transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             Add Student
           </button>
         </div>
       </div>
 
       {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card, idx) => {
           const Icon = card.icon;
           return (
             <div
               key={idx}
               onClick={() => navigate(card.link)}
-              className="group cursor-pointer p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-600 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+              className="group cursor-pointer p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs transition-all flex flex-col justify-between"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   {card.title}
                 </span>
-                <div
-                  className={`p-2.5 rounded-xl ${
-                    card.color === 'indigo'
-                      ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400'
-                      : card.color === 'emerald'
-                      ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400'
-                      : card.color === 'amber'
-                      ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400'
-                      : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                  <Icon className="w-4 h-4" />
                 </div>
               </div>
 
-              <div className="mt-4">
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+              <div className="mt-3">
+                <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {card.value}
                 </h3>
                 {card.subtitle && (
@@ -191,9 +181,9 @@ export const AdminDashboard = () => {
                 )}
               </div>
 
-              <div className="mt-4 flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">
-                <span>View details</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+              <div className="mt-3 flex items-center gap-1 text-[11px] font-medium text-slate-500 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                <span>View</span>
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </div>
             </div>
           );
@@ -201,21 +191,21 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Two-Column Section: Low Attendance Alerts & Recent Notices */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Low Attendance Flagged Students (2 cols) */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600">
-                  <AlertTriangle className="w-5 h-5" />
+                <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Low Attendance Warning System
+                  <h3 className="text-xs font-semibold text-slate-900 dark:text-white">
+                    Low Attendance Alerts
                   </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Students flagged automatically below 75% attendance threshold
+                  <p className="text-[10px] text-slate-400">
+                    Below 75% threshold
                   </p>
                 </div>
               </div>

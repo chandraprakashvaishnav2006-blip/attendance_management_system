@@ -371,35 +371,35 @@ export const AttendanceManagement = () => {
       {/* Title & Export */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
             Attendance Administration
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Log real-time attendance by class, branch, and section with audit logging & reports
           </p>
         </div>
 
         <button
           onClick={handleExportAttendance}
-          className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
+          className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs"
         >
-          <Download className="w-4 h-4" />
+          <Download className="w-3.5 h-3.5 text-slate-500" />
           Export Attendance Report (CSV)
         </button>
       </div>
 
       {/* Control Bar: Class, Branch, Section, Subject, Date, Period Slot, Mark All */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5 items-start">
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 items-start">
           {/* Class / Course */}
           <div className="min-w-0">
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 truncate">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 truncate">
               Class / Course
             </label>
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none truncate"
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 truncate"
             >
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -411,13 +411,13 @@ export const AttendanceManagement = () => {
 
           {/* Branch / Department */}
           <div className="min-w-0">
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 truncate">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 truncate">
               Branch
             </label>
             <select
               value={selectedBranch}
               onChange={(e) => setSelectedBranch(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none truncate"
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 truncate"
             >
               <option value="">All Branches</option>
               {branches.map((b) => (
@@ -430,13 +430,13 @@ export const AttendanceManagement = () => {
 
           {/* Section */}
           <div className="min-w-0">
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 truncate">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 truncate">
               Section
             </label>
             <select
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none truncate"
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-slate-400 truncate"
             >
               <option value="">All Sections</option>
               {availableSections.map((s) => (
@@ -554,18 +554,18 @@ export const AttendanceManagement = () => {
         {/* Action Shortcuts & Save */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Quick Shortcuts:</span>
+            <span className="text-xs font-medium text-slate-500">Quick Shortcuts:</span>
             <button
               type="button"
               onClick={() => handleMarkAll('Present')}
-              className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-800 transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-medium border border-emerald-200/80 dark:border-emerald-800/80 transition-colors"
             >
               Mark All Present
             </button>
             <button
               type="button"
               onClick={() => handleMarkAll('Absent')}
-              className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-bold border border-rose-200 dark:border-rose-800 transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-medium border border-rose-200/80 dark:border-rose-800/80 transition-colors"
             >
               Mark All Absent
             </button>
@@ -578,16 +578,16 @@ export const AttendanceManagement = () => {
             type="button"
             disabled={saving || students.length === 0}
             onClick={handleSaveAttendance}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50"
+            className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-medium text-xs flex items-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
           >
-            <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save & Broadcast Attendance'}
+            <Save className="w-3.5 h-3.5" />
+            {saving ? 'Saving...' : 'Save & Broadcast'}
           </button>
         </div>
       </div>
 
       {/* Attendance Grid */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs overflow-hidden">
         {loading ? (
           <div className="p-6">
             <SkeletonLoader count={6} type="table" />
